@@ -169,6 +169,19 @@ textarea, input[type=text] { font: inherit; font-family: var(--mono); font-size:
 .note { font-family: var(--sans); font-size: .86rem; color: var(--ink-2); background: var(--paper-2); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 14px; margin-top: 10px; min-height: 44px; }
 .note b { color: var(--ink); font-family: var(--mono); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; margin-right: 8px; }
 
+/* window chrome (playground) */
+.window { border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--paper-2); box-shadow: var(--shadow); margin-block: 18px 12px; }
+.win-bar { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--paper-3); border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: .74rem; color: var(--ink-3); }
+.win-bar .dots { display: inline-flex; gap: 5px; }
+.win-bar .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--rule); border: 1px solid color-mix(in srgb, var(--ink-3) 35%, transparent); }
+.win-bar .dots i:first-child { background: color-mix(in srgb, var(--accent) 55%, var(--rule)); }
+.win-title { color: var(--ink-2); letter-spacing: .02em; }
+.win-badge { margin-left: auto; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink-3); }
+.window .tabs { margin: 0; padding-inline: 8px; background: var(--paper-2); }
+.win-tool { padding: 12px 14px 4px; border-bottom: 1px solid var(--rule); background: var(--paper-2); }
+.win-tool .chips { margin: 0 0 8px; }
+.window .doc { border: 0; border-radius: 0; background: var(--paper); min-height: 280px; }
+.win-status { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--rule); background: var(--paper-3); font-family: var(--mono); font-size: .72rem; color: var(--ink-3); }
 .pill { display: inline-block; font-family: var(--mono); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--paper-3); color: var(--ink-2); }
 .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 details { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 14px; background: var(--paper-2); margin-block: 14px; }
@@ -255,10 +268,17 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
 <section id="playground">
   <div class="section-head"><span class="num">03</span><div><div class="eyebrow">Playground</div><h2>Same prompt, three models</h2></div></div>
   <div class="prose"><p>Every output here was generated once and saved, with a fixed seed, so the page answers instantly and shows what each model actually produced rather than a cherry-picked run. The three models are the phase 1 character model, an untouched SmolLM2-360M, and that same model after an hour of fine-tuning on this corpus (section 05). The last prompt is a real question, included to show what a base language model does with one.</p></div>
-  <div class="tabs" id="pgTabs" role="tablist"></div>
-  <div class="chips" id="pgChips" role="group" aria-label="Prompts"></div>
-  <div class="doc-head"><span id="pgSettings"></span><span id="pgTiming"></span></div>
-  <div class="doc prompt-mark" id="pgDoc" aria-live="polite"></div>
+  <div class="window">
+    <div class="win-bar">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="win-title">fedspeak &mdash; prompt playground</span>
+      <span class="win-badge">precomputed</span>
+    </div>
+    <div class="tabs" id="pgTabs" role="tablist" aria-label="Model"></div>
+    <div class="win-tool"><div class="chips" id="pgChips" role="group" aria-label="Prompts"></div></div>
+    <div class="doc prompt-mark" id="pgDoc" aria-live="polite"></div>
+    <div class="win-status"><span id="pgSettings"></span><span id="pgTiming"></span></div>
+  </div>
   <p class="small muted" style="margin-top:10px">Prompt shown in green. The character model receives the prompt as characters; the SmolLM2 models as BPE tokens. Header prompts in square brackets are the format the fine-tuned model was trained with; the other two models have never seen one.</p>
 </section>
 
@@ -353,6 +373,7 @@ const ticks = (lo, hi, n = 5) => {
 };
 
 /* ---------- line chart with hover ---------- */
+let clipSeq = 0;
 function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title, refLine, endLabels = true, fmtX = (v) => tabular(v), fmtY = (v) => fmt(v), h = 300 }) {
   const W = 720, H = h, P = { l: 48, r: 96, t: title ? 30 : 22, b: 40 };
   container.innerHTML = "";
@@ -361,6 +382,13 @@ function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title,
   const xd = xDomain || [Math.min(...allX), Math.max(...allX)];
   const yd = yDomain || [Math.min(...allY, refLine ?? Infinity) * 0.95, Math.max(...allY, refLine ?? -Infinity) * 1.05];
   const x = lin(xd[0], xd[1], P.l, W - P.r), y = lin(yd[0], yd[1], H - P.b, P.t);
+  // Data is clipped to the plot box; labels are not, so end labels can sit in
+  // the right margin while a line that starts off-scale enters from the edge
+  // instead of drawing over the prose above the chart.
+  const clipId = "plot-clip-" + (++clipSeq);
+  svg.append(el("svg:defs", {}, el("svg:clipPath", { id: clipId },
+    el("svg:rect", { x: P.l, y: P.t - 2, width: W - P.l - P.r + 6, height: H - P.t - P.b + 2 }))));
+  const plot = el("svg:g", { "clip-path": `url(#${clipId})` });
   const grid = el("svg:g", { class: "grid" }), axis = el("svg:g", { class: "axis" });
   for (const v of ticks(yd[0], yd[1])) { grid.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) })); axis.append(el("svg:text", { x: P.l - 8, y: y(v) + 4, "text-anchor": "end", text: fmtY(v) })); }
   for (const v of ticks(xd[0], xd[1], 6)) axis.append(el("svg:text", { x: x(v), y: H - P.b + 18, "text-anchor": "middle", text: fmtX(v) }));
@@ -373,14 +401,15 @@ function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title,
   const ends = [];
   series.forEach((s, i) => {
     const d = s.pts.map((p, j) => (j ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
-    svg.append(el("svg:path", { d, fill: "none", stroke: s.color || SERIES[i], "stroke-width": s.width || 2, "stroke-dasharray": s.dash || "none", opacity: s.opacity ?? 1, "stroke-linejoin": "round" }));
+    plot.append(el("svg:path", { d, fill: "none", stroke: s.color || SERIES[i], "stroke-width": s.width || 2, "stroke-dasharray": s.dash || "none", opacity: s.opacity ?? 1, "stroke-linejoin": "round" }));
     if (s.label !== undefined && endLabels) { const last = s.pts[s.pts.length - 1]; ends.push({ x: x(last[0]), y: y(last[1]), text: `${s.label} ${fmtY(last[1])}`, color: s.color || SERIES[i] }); }
   });
   ends.sort((a, b) => a.y - b.y); for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
-  for (const e of ends) { svg.append(el("svg:circle", { cx: e.x, cy: e.y, r: 3.5, fill: e.color, stroke: "var(--paper)", "stroke-width": 1.5 })); svg.append(el("svg:text", { x: e.x + 8, y: e.y + 4, class: "endlbl", text: e.text })); }
+  for (const e of ends) { plot.append(el("svg:circle", { cx: e.x, cy: e.y, r: 3.5, fill: e.color, stroke: "var(--paper)", "stroke-width": 1.5 })); svg.append(el("svg:text", { x: e.x + 8, y: e.y + 4, class: "endlbl", text: e.text })); }
   const xh = el("svg:line", { class: "xh", y1: P.t, y2: H - P.b, x1: -10, x2: -10 });
   const dots = series.map((s, i) => el("svg:circle", { r: 4, fill: s.color || SERIES[i], stroke: "var(--paper)", "stroke-width": 1.5, opacity: 0 }));
-  svg.append(xh, ...dots);
+  plot.append(xh, ...dots);
+  svg.append(plot);
   const tip = el("div", { class: "tip" });
   container.append(svg, tip);
   const hover = el("svg:rect", { x: P.l, y: P.t, width: W - P.l - P.r, height: H - P.t - P.b, fill: "transparent" });
@@ -389,7 +418,7 @@ function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title,
     const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
     const xv = xd[0] + (px - P.l) / (W - P.l - P.r) * (xd[1] - xd[0]);
     const lines = []; let sx = null;
-    series.forEach((s, i) => { if (s.label === undefined) return; let best = s.pts[0]; for (const p of s.pts) if (Math.abs(p[0] - xv) < Math.abs(best[0] - xv)) best = p; dots[i].setAttribute("cx", x(best[0])); dots[i].setAttribute("cy", y(best[1])); dots[i].setAttribute("opacity", 1); lines.push(`${s.label}: ${fmtY(best[1])}`); sx = best[0]; });
+    series.forEach((s, i) => { if (s.label === undefined) return; const inView = s.pts.filter(p => p[1] <= yd[1] && p[1] >= yd[0]); if (!inView.length) return; let best = inView[0]; for (const p of inView) if (Math.abs(p[0] - xv) < Math.abs(best[0] - xv)) best = p; dots[i].setAttribute("cx", x(best[0])); dots[i].setAttribute("cy", y(best[1])); dots[i].setAttribute("opacity", 1); lines.push(`${s.label}: ${fmtY(best[1])}`); sx = best[0]; });
     if (sx == null) return;
     xh.setAttribute("x1", x(sx)); xh.setAttribute("x2", x(sx));
     tip.innerHTML = `<b>${xLabel} ${fmtX(sx)}</b><br>` + lines.join("<br>");
