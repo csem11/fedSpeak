@@ -1,0 +1,4 @@
+source,val_docs,chars_scored,loss_nats_per_char,bits_per_char
+statements,25,48896,0.4267,0.616
+minutes,24,1115904,0.6314,0.911
+beigebook,24,2541312,0.7219,1.042

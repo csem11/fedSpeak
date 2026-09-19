@@ -1,0 +1,258 @@
+# FedSpeak experiments: what moves the loss
+
+The main FedSpeak run trains a 10.65M-parameter character model to a
+validation loss of 0.698 nats per character in 29 minutes. This write-up asks
+which of the choices behind that number actually matter, by changing one
+thing at a time and holding everything else fixed. It ends with two
+measurements on the finished model that a loss curve alone can't show: how
+hard each of the three sources is, and how the text changes as the model
+learns.
+
+All numbers come from the CSV logs in `results/experiments/` and
+`results/`, produced by `run_experiments.sh`, `eval_by_source.py`, and
+`sample.py`. Figures are drawn by `plot_results.py`.
+
+## Setup
+
+Every ablation run is the same recipe:
+
+| | |
+|---|---|
+| Baseline model | 4 layers, 4 heads, 256-wide, 3.17M parameters |
+| Budget | 1000 iterations at 16,384 characters per iteration = 16.4M characters, half of one pass over the corpus |
+| Schedule | 100 warmup iterations, cosine decay from the peak rate to 10% of it |
+| Evaluation | every 100 iterations, 20 batches each of train and validation |
+| Validation set | the last 10% of the date-ordered corpus, every document from 20 September 2023 onward |
+| Hardware | Apple M4, MPS, one run at a time |
+
+The baseline is deliberately smaller than the main model so that eight runs
+fit in an hour. One run changes one knob; the run labelled *baseline* in each
+axis below is the same single run, `ctx0256`.
+
+Characters per iteration are held constant when context length changes, so
+a run with 16-character context sees 1024 sequences per step and a run with
+1024-character context sees 16. That's the fair comparison for "same data,
+same compute", and it is also the source of the most interesting result.
+
+## Results at a glance
+
+![Final validation loss per run](results/figures/ablation_summary.png)
+
+| Axis | Run | Change from baseline | Val loss @ 1000 | Wall time |
+|---|---|---|---|---|
+| context | `ctx0016` | 16 chars of context, 1024 seqs/step | 1.090 | 3.9 min |
+| context | `ctx0064` | 64 chars, 256 seqs/step | **0.901** | 4.0 min |
+| context | `ctx0256` | baseline: 256 chars, 64 seqs/step | 0.922 | 5.8 min |
+| context | `ctx1024` | 1024 chars, 16 seqs/step | 1.276 | 10.0 min |
+| size | `size0.4M` | 2 layers, 2 heads, 128-wide (0.40M) | 1.426 | 1.2 min |
+| size | `ctx0256` | baseline: 3.17M | 0.922 | 5.8 min |
+| size | `size10.6M` | 6 layers, 6 heads, 384-wide (10.65M) | 0.798 | 14.1 min |
+| learning rate | `lr3e-4` | peak 3e-4 | 1.211 | 5.4 min |
+| learning rate | `ctx0256` | baseline: peak 1e-3 | 0.922 | 5.8 min |
+| learning rate | `lr3e-3` | peak 3e-3 | **0.877** | 6.2 min |
+
+For scale: the uniform-guess loss over 86 characters is 4.45, and the main
+run reaches 0.698 with the 10.65M model after twice this budget.
+
+## Context length: more is not better at this budget
+
+![Context length](results/figures/ablation_context.png)
+
+Going from 16 to 64 characters of context is worth 0.19 nats, the largest
+single improvement on this axis. Going from 64 to 256 is worth nothing: the
+256-context baseline finishes slightly *worse* (0.922 vs 0.901). Going to 1024 is actively harmful: 1.276, worse than the 16-character model, and it takes nearly twice as long per run because attention cost grows with context.
+
+Three things are happening at once, and the experiment can't fully separate
+them:
+
+1. **Most of the predictable structure in English-like text is local.** The
+   next character depends overwhelmingly on the previous few dozen. A model
+   with 64 characters of context can see the whole current word, the previous
+   two or three, and usually the start of the sentence. Beyond that, extra
+   context only helps for things like closing a quotation, continuing a
+   roster, or keeping a district name consistent, which are rarer.
+2. **Fewer sequences per step means noisier gradients.** With characters per
+   step fixed, the 1024-context run averages its gradient over 16 documents
+   slices instead of 1024. Each step is a worse estimate of the true
+   gradient, and 1000 steps is not enough to average that out.
+3. **Long context takes longer to learn to use.** The curves show this
+   directly: the 16-character model has the lowest loss until iteration 250,
+   the 64-character model until iteration 800, and the 256-character model
+   only draws level in the last 200 iterations while still falling faster
+   than the others. Attention has to discover
+   that a character 500 positions back is worth attending to. Early in
+   training it hasn't, so the extra positions are cost without benefit. The
+   main 2000-iteration run at context 256 reaches 0.698, but that run is also
+   3x bigger, so the two effects can't be separated from this data.
+
+The practical reading: for a character model on this corpus, 64 to 256
+characters of context is the right range, and the choice between them should
+be made on what you want the *samples* to do, not on loss. A 64-character
+model can't hold a "Present:" roster together; a 256-character model can.
+
+## Model size: the biggest lever
+
+![Model size](results/figures/ablation_size.png)
+
+| Parameters | Val loss @ 1000 | Time |
+|---|---|---|
+| 0.40M | 1.426 | 1.2 min |
+| 3.17M | 0.922 | 5.8 min |
+| 10.65M | 0.798 | 14.1 min |
+
+Eight times the parameters buys half a nat between the tiny and baseline
+models. Another 3.4x buys a further 0.12, to 0.798, at 2.4x the wall time. The tiny model's samples are recognisably Fed-flavoured but
+cannot spell reliably; the difference between 1.43 and 0.92 is roughly the
+difference between "accommodity" and "accommodative".
+
+Every step of the bigger model costs more, so at fixed *wall time* rather
+than fixed iterations the picture is closer than the table suggests. The
+0.4M model could run 5000 iterations in the time the 3.2M model runs 1000.
+Whether that would close the gap is the question the scaling-laws literature
+answers with "partly, and predictably". Here it was not tested.
+
+## Learning rate: the default was too cautious
+
+![Learning rate](results/figures/ablation_lr.png)
+
+| Peak learning rate | Val loss @ 1000 |
+|---|---|
+| 3e-4 | 1.211 |
+| 1e-3 (nanoGPT's char default) | 0.922 |
+| 3e-3 | **0.877** |
+
+A 3x lower rate costs 0.29 nats: the model just hasn't travelled far enough
+in 1000 steps. A 3x higher rate *gains* 0.045 with no sign of instability in
+the step log. nanoGPT's default of 1e-3 was tuned for 5000 iterations over a
+1.1M-character corpus, where the model sees the data 75 times and a gentler
+rate helps it settle. In a single pass over a large corpus, the model is
+under-trained rather than over-fitted, and a more aggressive rate helps.
+
+This is the cheapest improvement available to the main run and it was not
+taken, because the main run was built to match nanoGPT's reference config,
+not to be optimal.
+
+## Per-source difficulty: statements are the easiest text
+
+Measured on the final 10.65M model, over the validation portion of each
+source (documents from 20 September 2023 onward), in non-overlapping
+256-character windows. `results/loss_by_source.csv`.
+
+| Source | Val documents | Characters scored | Loss (nats/char) | Bits/char |
+|---|---|---|---|---|
+| FOMC statements | 25 | 48,896 | **0.427** | 0.62 |
+| FOMC minutes | 24 | 1,115,904 | 0.631 | 0.91 |
+| Beige Books | 24 | 2,541,312 | 0.722 | 1.04 |
+
+The prediction going in was the opposite: statements are 1.6% of the corpus,
+so the model has seen the fewest of them, and they should be hardest. They
+are the easiest by a wide margin, because they are the most formulaic.
+Consecutive statements reuse whole sentences verbatim ("The Committee seeks
+to achieve maximum employment and inflation at the rate of 2 percent over
+the longer run"), so a model that has seen two years of them can predict the
+next one almost character for character. The Beige Book, two thirds of the
+training data, is the hardest, because twelve districts each describe
+different businesses in different words every six weeks.
+
+Loss per character is a measure of *novelty*, not of importance. The
+source that dominates training is the one the model is least sure about,
+and the source it barely saw is the one it can nearly recite.
+
+## Temperature: the same model, five personalities
+
+`results/temperature_sweep.txt` has the full samples. All from the same
+prompt and seed, top-k 40.
+
+| Temperature | What happens |
+|---|---|
+| 0.3 | Grammatical, on-register, and stuck. It reproduces the most common directive language nearly verbatim and then loops: "at a pace of $5 billion per month per month". |
+| 0.6 | Fluent with occasional grammatical slips ("the continuing necessary to continue to monitor"). Best trade-off for reading as Fed prose. |
+| 0.8 | The setting used for the headline samples. Every clause plausible, the sentence drifts. |
+| 1.0 | Spelling starts to go: "experting", "Recessary". Section headings appear mid-paragraph. |
+| 1.3 | "cudit candidates", "pipelined perceived". Individual words are still mostly real; the sequence is noise. |
+
+Temperature doesn't change what the model knows. It changes how much of its
+probability distribution you let it sample from. Low temperature shows what
+it is *most* sure of, which for this corpus is boilerplate; high temperature
+shows the long tail, which is where the fabrication becomes visible as
+misspelling rather than as confident nonsense.
+
+## Watch it learn: samples along the main run
+
+The main run was repeated with a checkpoint saved at every evaluation
+(`train.py --save_every_eval`; it reproduced the original to within 0.001,
+val 0.6977 vs 0.6981). Each checkpoint was given the same prompt, "The
+Committee decided to", at temperature 0.8. Full text in
+`results/samples_by_iteration.txt`; first 110 characters of each here.
+
+| Iter | Val loss | Sample continues... | What it has learned |
+|---|---|---|---|
+| 0 | 4.575 | `DXCvB))YMt9,rr1bZ1YYbhA2x 3;;DDcFQQtVd*[XLLMTx1V.5l426gpPPZP` | Nothing. Uniform noise over 86 characters. |
+| 200 | 1.716 | `thest pricipate temboker a were Rited of firme sllowe hightly acciparted conths` | Letters come in pronounceable runs, spaces land every 4 to 8 characters, capitals start words. English-shaped, no English. |
+| 400 | 1.093 | `these providerest since the sector for the Treasury, and gas support that the ropments largely pressure` | Most short words are real. Long words are blends ("providerest"). Line breaks and a section heading ("Agriculturism") appear. |
+| 600 | 0.943 | `an its longraper. The price sector for commercial developments in the first three monthly in the District` | Beige Book vocabulary and phrase shapes: "in the District", "commercial developments". Grammar still fails at clause boundaries. |
+| 800 | 0.868 | `anticipate increased moderately. Nearly accounts in confidence that had remained modestly in early 2018` | Hedging adverbs in the right slots ("moderately", "modestly"). A plausible year. Sentences start and end where sentences do. |
+| 1000 | 0.819 | `current the Committee to achieve maximum employment, the minutes and properties assumed at the Federal Reserve's holdings` | First verbatim policy phrase: "to achieve maximum employment". The prompt's "Committee" has pulled it toward minutes register. |
+| 1200 | 0.771 | `considerably consistent with the its decision to lower growth and the federal funds rate at least consistent with` | Statement vocabulary ("federal funds rate", "its decision") but repetitive: "consistent with" twice in 20 words. |
+| 1400 | 0.747 | `maintain the target range for the term of the federal funds rate at this meeting in assessing the economic outlook` | "maintain the target range for the federal funds rate" is the real statement formula, nearly intact. |
+| 1600 | 0.715 | `consider appropriate monetary policy, and in the labor market appeared to have remains largely unchanged` | Whole clauses lifted correctly; the join between them is where the errors now live ("appeared to have remains"). |
+| 1800 | 0.702 | `keep the target range for the federal funds rate at 1 to 1-3 percent. Voting for the FOMC monetary policy action were: Ben S. Bernanke, Chairman` | The full statement structure: decision, then the voting roster with a real Chairman and a real Vice Chairman. The range "1 to 1-3 percent" is malformed. |
+| 2000 | 0.698 | `keep the target range for the federal funds rate lower in the longer run. To support sell inflation expectations, over the medium term` | Fluent statement register throughout. Reads as Fed prose at a glance and means nothing on inspection. |
+
+The order in which things are learned is the order of their statistical
+strength: character frequencies, then spelling, then short words, then
+collocations, then sentence templates, then document structure. Everything
+that arrives late is what makes the output *look* authoritative, and none
+of it is grounded in anything but the preceding characters. The loss halves
+between iterations 200 and 400 and the text goes from gibberish to
+almost-words; it falls another 0.12 between 1400 and 2000 and the text goes
+from almost-statements to statements. The second change is smaller in
+nats and far larger in how convincing the output is, which is exactly the
+gap between what the loss measures and what a reader sees.
+
+## How far the same mechanism goes
+
+Nothing in this project is different in kind from what trains a frontier
+model: the same next-token objective, the same transformer block, the same
+AdamW and cosine schedule. What differs is scale. `results/scale_table.csv`.
+
+| Model | Parameters | Training tokens | Training compute (FLOPs) | vs FedSpeak |
+|---|---|---|---|---|
+| FedSpeak main run | 10.7M | 33M characters | 2.1e15 | 1x |
+| nanoGPT shakespeare_char | 10.7M | 82M characters | 5.2e15 | 2.5x |
+| GPT-2 (1.5B, 2019) | 1.5B | ~10B (estimate) | ~9e19 | ~40,000x |
+| GPT-3 (2020) | 175B | 300B | 3.1e23 (published) | 150,000,000x |
+| Llama 3.1 405B (2024) | 405B | 15.6T | 3.8e25 (published) | 18,000,000,000x |
+
+FedSpeak's compute is estimated as 6 x parameters x tokens, the standard
+approximation. GPT-3 and Llama 3.1 figures are from their papers; the GPT-2
+token count is an estimate from the reported 40 GB of WebText. Between this
+laptop and Llama 3.1 sit ten orders of magnitude, and every one of the
+failure modes documented in `results/annotated_sample.md` (fabricated dates,
+inconsistent roles, fluent drift) is a failure mode that persists across
+them, just at longer range and with better spelling.
+
+## Caveats
+
+- **One seed per run.** With 20 evaluation batches, the noise on each val
+  loss is roughly ±0.01. Differences of 0.02 (context 64 vs 256) are
+  suggestive, not established. Differences of 0.2 are real.
+- **1000 iterations is a short budget.** Every ranking here is "at this
+  budget". Learning rate and context length in particular are known to
+  change their optimum with training length.
+- **Validation loss depends on the context length being evaluated.** Each
+  run is scored in windows of its own block size, so a 16-context model is
+  scored with at most 16 characters of context. That is the honest measure
+  of what the model can do, but it means the context axis mixes "how much
+  context helps learning" with "how much context helps prediction".
+- **The chronological split favours the formulaic.** Validation is the most
+  recent 10% of documents. A source whose recent documents closely repeat
+  earlier ones (statements) will score well partly for that reason.
+
+## Reproduce
+
+```
+./run_experiments.sh          # ~45 min on an M4; writes runs/<name>/eval_log.csv
+python eval_by_source.py      # ~1 min; writes results/loss_by_source.csv
+python plot_results.py        # writes results/figures/*.png
+```

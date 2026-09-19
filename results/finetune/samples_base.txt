@@ -1,0 +1,51 @@
+SmolLM2-360M BASE model (no fine-tuning) on the same prompts used for the fine-tuned model.
+temperature 0.8, top_k 50, top_p 0.95, repetition_penalty 1.1, seed 1337, 250 new tokens. Generated text; not facts.
+
+================================================================
+PROMPT: [FOMC statement | 2026-10-28]
+================================================================
+=============== sample 1 ===============
+[FOMC statement | 2026-10-28]
+
+The "3% in the last year" is not a good idea. The Fed will continue to buy $19 billion of bonds each month, but it won't be able to buy them all at once because market interest rates are so low, and there's still more than enough supply for everyone else (because of the huge amount of money the Fed has been printing). If they did want to do that, they could always print some more right now, or maybe wait until April when the unemployment rate goes up again. But I wouldn't count on that happening.
+
+
+I am confused by this article. It says the FOMC should announce an official plan to lower short term rates. Is the goal to reduce inflation? Does the reason for increasing the discount rate really matter if inflation increases substantially? Why shouldn't interest rates just stay high and allow banks to borrow against reserves which have already been created from new MBSs purchased through TARP funds? Also, why aren't we talking about the fiscal consequences of further budget deficits? We're already getting another round of deficit spending with Trump's tax cut! We need to stop pretending like the deficit can only come from government spending and start considering how much debt our nation will carry.
+
+
+================================================================
+PROMPT: [Beige Book | 2026-10-15]
+================================================================
+=============== sample 1 ===============
+[Beige Book | 2026-10-15]
+
+The "Beige Book" is a financial document that contains the country's economic data. It's produced by an organization called Banco de Espana (Bank of Spain), which in turn reports to the Bank of Spain, and who in turn consults with other central banks for information about global markets. [Source: Beige Book /Banks News /28 Jan 2009]
+
+A typical paragraph describing Spain’s current account balance says “For the first nine months of fiscal year 2007, net private sector investment was positive at €38 billion ($46.8 billion) against negative $46 billion last year.” A more recent version shows a different perspective on this question by saying: “[i]n fiscal year 2007 net foreign direct investment declined from its level of -$100 million to -$400 million over the course of the year. [Source: Wikipedia /17 Feb 2009]
+
+In the same way, it took just five years after Japan started printing money to make the real estate bubble burst so large as to create another great recession. In fact, you can see how both countries have now returned
+
+
+================================================================
+PROMPT: [FOMC minutes | 2026-09-17]
+================================================================
+=============== sample 1 ===============
+[FOMC minutes | 2026-09-17]
+
+The "3.5 percent GDP growth rate" is a commonly used phrase which reflects the consensus view of economic activity in America, as well as some other nations around the globe. It's an estimate that has been made based on historical trends and assumptions about how far this economy will be able to grow over time before reaching full employment (the optimal level). The reason for these estimates is not only because there have never been times when the economy was actually growing faster than it did during the previous decade, but also because it would be impossible to know what sort of future growth might occur due to unforeseen circumstances or political decisions.
+
+It seems likely that China’s economic reforms are leading towards increased Chinese population growth rates. [FOMC Minutes: June 2021]
+
+For example, if the United States government were to go through with a contractionary monetary policy (which would include higher interest rates), then that would cause domestic investment spending to decline significantly. As we noted earlier today, investment spending accounts for roughly two-thirds of US GDP. A reduction in domestic investment spending could therefore lead to very large negative effects on US GDP growth over time.
+
+A second way in which the FOMC may influence economic
+
+
+================================================================
+PROMPT: The Committee decided to
+================================================================
+=============== sample 1 ===============
+The Committee decided to establish the "Worcester County War Cemetery" on land which is now part of the town of Worcester. The cemetery was dedicated by Bishop George A. Shea in 1865. At that time there were some gravestones and headstones, but not much. By then it had been over 40 years since the last Confederate soldier died at a battlefield in Massachusetts.
+
+It wasn't until June 23, 1970 that the war cemetery officially became an incorporated city of Worcester with its own police force, fire department and water supply. On May 27, 1975, after several months work, the first funeral service was held. Over the next couple of decades the cemetery expanded to include additional grave sites. Today it continues to grow as more veterans are buried there.
+

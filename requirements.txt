@@ -1,0 +1,4 @@
+# FedSpeak: deliberately minimal. Versions are what this was developed against.
+requests>=2.31
+beautifulsoup4>=4.12
+torch>=2.2

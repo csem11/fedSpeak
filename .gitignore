@@ -1,0 +1,18 @@
+# Raw HTML cache is ~100 MB and fully reproducible via scrape_fed.py
+data/raw/
+# Concatenated corpus is reproducible from data/clean/
+data/fedspeak.txt
+# Training artifacts
+out/
+__pycache__/
+*.pyc
+.DS_Store
+# Logs
+*.log
+# Experiment sweep outputs (checkpoints); eval logs are copied to results/experiments/
+runs/
+data/ft/
+finetune/out/
+# Tokenised tensors are reproducible from data/clean via prepare.py
+data/*.bin
+data/meta.pkl

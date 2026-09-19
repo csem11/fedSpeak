@@ -1,0 +1,39 @@
+FedSpeak temperature sweep. Model: out/ckpt.pt (10.65M params, iter 2000, val loss 0.698).
+Same prompt and seed at every temperature; top_k 40. All text below is generated; every fact in it is fabricated.
+
+================================================================
+TEMPERATURE 0.3
+================================================================
+In their discussion of the economic situation and the outlook, meeting participants generally agreed that the economic recovery was still strong and that it was subdued in the third quarter after the meeting. The Committee will continue to monitor the implications of incoming information for the economic outlook and is providing up to a strong period of reserve conditions and is not a concern.
+
+The Committee directs the Desk to engage in dollar roll and coupon swap transactions as necessary to facilitate settlement of the Federal Reserve's agency mortgage-backed securities holdings and in agency mortgage-backed securities at a pace of $5 billion per month per month. The Comm
+
+
+================================================================
+TEMPERATURE 0.6
+================================================================
+In their discussion of the economic situation and the outlook, meeting participants generally judged that the continuing necessary to continue to monitor inflation developments could evidence that economic activity in the United States would enable to remain above the Committee's longer-run objective. In their context of the Committee's longer-run objectives for price stability and sustainable economic growth, members agreed that inflation would remain accommodative and that a significant market for the economy as an increase in the target range for the federal funds rate while longer-term inflation expectations had remained stable. The Committee expects that inflation remai
+
+
+================================================================
+TEMPERATURE 0.8
+================================================================
+In their discussion of the economic situation and the outlook, meeting participants generally judged that consumer spending would likely remain quite or disposable income. Others reported that, accelerating on labor reserve conditions and this postmeeting that began to some improvement, especially except for purchase mortgages, including those providing longer-term interest rates for home-entities. A few contacts said that they would they not had operate long-term deposit rates in part times for a signing time after able to optimism. Respondents were operating early adjustments to Desk's CRE operations and lowered markets as salaries relative to the lack of homes for sale or
+
+
+================================================================
+TEMPERATURE 1.0
+================================================================
+In their discussion of the economic situation and the outlook, meeting participants  may be experting a focused increase over the longer run.
+
+Readings on consumer confidence in the level of recovery-grade incomes generally declined moderately in the coming months from the Federal Reserve's Recessary and Term Desk's holdings of such a provide of home buyers to other countries. Nearly half of our contacts continued to expect the dollar in the check mountain projections. Reflecting a primary metal market values was earlier this year-end establishment to a month earlier.
+
+Manufacturing
+Consumer spending increased modestly in late February and March, but remained "flat. Resident
+
+
+================================================================
+TEMPERATURE 1.3
+================================================================
+In their discussion of the economic situation and the outlook, meeting participants  may all agreed - information received conditions in reserve major cudit candidates would foster rate incurring economic developments and foreclosures and have pipelined perceived after some immediate signs in June emerge as possible pushed up significantly. Beyond that PPPP lAa reduced single-fapplications and to make the strong expectation the dollar had, but below they lower rated credit expectations toward 15 months. Retail and agriculture sectors generally reported weakness across the First District, particularly in Hispanics, mining, applications; Neational characterizes import with to 
+

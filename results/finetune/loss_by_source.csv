@@ -1,0 +1,7 @@
+model,source,val_docs,tokens_scored,nats_per_token,chars_per_token,bits_per_char
+finetuned,statements,25,10827,1.7220,5.05,0.492
+finetuned,minutes,24,218866,2.1537,5.12,0.607
+finetuned,beigebook,24,454494,2.6800,5.60,0.691
+base,statements,25,10827,2.5101,5.05,0.717
+base,minutes,24,218866,2.8484,5.12,0.803
+base,beigebook,24,454494,3.3278,5.60,0.857

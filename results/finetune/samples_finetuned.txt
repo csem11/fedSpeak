@@ -1,0 +1,49 @@
+SmolLM2-360M FINE-TUNED on FedSpeak (finetune/out/model, 320 steps, 1.31M tokens, val loss 2.522 nats/token).
+temperature 0.8, top_k 50, top_p 0.95, repetition_penalty 1.1, seed 1337, 250 new tokens. Generated text; not facts.
+
+================================================================
+PROMPT: [FOMC statement | 2026-10-28]
+================================================================
+=============== sample 1 ===============
+[FOMC statement | 2026-10-28]
+
+The Federal Reserve increased its policy rate to the lowest level since November of 2023. This change was prompted by uncertainty surrounding the COVID-19 pandemic, as well as efforts to maintain low inflation and support growth in economic activity. The FOMC agreed that monetary policy would be gradual but persistent at these levels for some time; if necessary, it could ease further with appropriate adjustments in reserve standards or forward guidance about the path of longer-term interest rates and other measures of price stability. A vote also reaffirmed that actions intended to facilitate economic recovery were to remain consistent with a balanced approach, including keeping the discount rate unchanged.
+
+Voting for the action included Ben Bernanke, Janet L. Yellen, Jerome H. Powell, Michael P. O'Dowd, and David Neira. Voting against this measure were Daniel K. Tarullo; Jeffrey M. Lacker, Susan S. Kelley, Stephen J. Bowers, and John C. Williams.
+
+
+================================================================
+PROMPT: [Beige Book | 2026-10-15]
+================================================================
+=============== sample 1 ===============
+[Beige Book | 2026-10-15]
+
+The Federal Reserve Board estimates that the probability of a decline in commodity prices exceeding 3 percent for most commodities during this year's second quarter is about one-half, with increases likely to be smaller than expected. A possible downside risk to U.S. economic growth from declines in commodity prices will depend on how severe these price declines are and what extent they depress demand for non-energy industrial materials. The outlook for inflation through the first half of next year has improved somewhat relative to expectations at the beginning of the year but remains uncertain.
+
+Fiscal Policy
+The Committee expects fiscal policy conditions to remain accommodative over coming months. Fiscal authorities generally met their stated goals of maintaining sustainable budget balances while providing substantial stimulus to aggregate demand. In recent weeks, Treasury bills have moved lower while MBS yields have risen slightly. On net, revenues rose noticeably more slowly than expenditures during the period ending in October. Overall, total federal tax collections increased modestly compared with last year as business activity expanded further amid strong job gains. Revenues grew faster overall from state and local governments and were up somewhat from spending levels. As a result of sizable surpluses already accumulated by federal agencies, outlays for health insurance and other government benefits decreased slightly since
+
+
+================================================================
+PROMPT: [FOMC minutes | 2026-09-17]
+================================================================
+=============== sample 1 ===============
+[FOMC minutes | 2026-09-17]
+
+The Federal Reserve Board's open market operations will remain at a pace sufficient to support sustainable, flexible monetary policy. The Committee will continue to monitor the evolution of economic conditions and financial markets with an eye toward ensuring that the U.S. economy continues to expand smoothly as well as the public debt service becomes more manageable.
+
+Open Market Operations
+
+In its discussion about the balance sheet modifications to be implemented in November and December, the Board noted that these actions would include reducing holdings of Treasury securities by some amount relative to their average level since mid-November. For example, if the target range for the federal funds rate were revised downward from its current levels to 1/4 percent (as indicated in the FOMC statement on September 25), then the amount of open market transactions under the existing program might have been reduced slightly; however, it could have also been increased substantially as had occurred during the period ending late March or early April. In addition, although issuance of agency mortgage-backed securities has not changed markedly over recent months, such assets are likely to rise again in the near future owing to potential improvements in mortgage lending performance. Accordingly, the Committee decided to reduce holdings of these instruments at this time, in accordance with its
+
+
+================================================================
+PROMPT: The Committee decided to
+================================================================
+=============== sample 1 ===============
+The Committee decided to keep the remaining short-term rates unchanged at the rate of 25 basis points on a daily basis. The Committee also maintained its stance that it would be appropriate, with appropriate support from other economic indicators and policy parameters as deemed necessary by the Board, to adjust the federal funds rate downward only gradually over time in order to ensure that conditions for maximum employment and price stability did not deteriorate too rapidly.
+
+In remarks after the meeting, the President stressed his continued confidence that domestic demand remained strong but noted, "In addition, our long-run fiscal plan is still well below where we wanted it." He agreed with earlier reports indicating that the unemployment rate had fallen modestly during the first quarter of 2018, and he expressed hope that the longer-run trend toward greater labor force participation might continue unabated. With regard to inflation expectations, Mr. Trump said, "I expect that they will remain accommodative going forward," though he went on to add that they were very low in part because of the effects of monetary policy.
+
+Mr. McDonough then turned to discussion of future economic policy options. Responding to questions about how much further the Federal Reserve should take action before reducing the target range for the federal
+

@@ -1,0 +1,67 @@
+FedSpeak samples along the main run (runs/main_ckpts, identical config and seed to out/ckpt.pt).
+Prompt: 'The Committee decided to'  |  300 characters  |  temperature 0.8, top_k 40, seed 1337
+Every line is generated text; nothing in it is a fact.
+
+================================================================
+ITERATION 0   val loss 4.5747
+================================================================
+The Committee decided toDXCvB))YMt9,rr1bZ1YYbhA2x
+3;;DDcFQQtVd*[XLLMTx1V.5l426gpPPZP
+YY0[[QPTNLXXX[G;5+MwPmFXyNe-axiXk728C08w=k8-iXQqVYYMdww=03"4:=zzB`KC3"eAb=c!K$$-p-P_LU:SUeQr:D**
+x&-fbbwePB-,TPb29NX1L2$c-`.(59H!Ze6Hj/e+VV[wU7D"77h5U:%p+gffUqY1My8nTS)BPt[WOsnx
+8YQS+PwG.q5jP3t8gt1bj&V!QNtPPeW2/XQ.HxwwPCL3.Mu0.NNSGGQ&uJPp
+
+================================================================
+ITERATION 200   val loss 1.7159
+================================================================
+The Committee decided to thest pricipate temboker a were Rited of firme sllowe hightly acciparted conths as was larlesed toclity ince in thousing for commic becipate forth the ralemainin, Stecipated over of pis resport and and the that the prices DShists atthes and sof wine of thear ixisth in P. Dichanstron. T0000000001, p
+
+================================================================
+ITERATION 400   val loss 1.0932
+================================================================
+The Committee decided to these providerest since the sector for the Treasury, and gas support that the ropments largely pressure of lower to plans.
+Banking and remained softened smalling prices, while construction services remained fundanced from Septes at the late of wind operation, manufacturing.
+Agriculturism
+Most Dep
+
+================================================================
+ITERATION 600   val loss 0.9428
+================================================================
+The Committee decided to an its longraper. The price sector for commercial developments in the first three monthly in the District continued to a foreclosing of increase in services.
+The State value of the District economy remained fundamentals for number declines in the existing of the houses increases in March as backed
+
+================================================================
+ITERATION 800   val loss 0.8683
+================================================================
+The Committee decided to anticipate increased moderately. Nearly accounts in confidence that had remained modestly in early 2018 in the months ahead for longer-run office sectors, mainly based overally for reinvestores and auto dealers. The single-family hours of the first quarter of the holiday startf stable. Real markets
+
+================================================================
+ITERATION 1000   val loss 0.8191
+================================================================
+The Committee decided to current the Committee to achieve maximum employment, the minutes and properties assumed at the Federal Reserve's holdings off 1-30 called over the next few quarters as well as to receive and inflation would resilience the Desk to extension more with open market supportive stanges. The Committee's p
+
+================================================================
+ITERATION 1200   val loss 0.7707
+================================================================
+The Committee decided to considerably consistent with the its decision to lower growth and the federal funds rate at least consistent with the federal funds rate at an announced and a provision that the regarding the approach would keep the financial market to be temporarily set that, maintaining the federal funds rate was
+
+================================================================
+ITERATION 1400   val loss 0.7471
+================================================================
+The Committee decided to maintain the target range for the term of the federal funds rate at this meeting in assessing the economic outlook approved for longer-run goals. The monitoring rapid investment in real GDP growth was referred by policy rates for a time about the upside rate of such and long-term inflation expectat
+
+================================================================
+ITERATION 1600   val loss 0.7154
+================================================================
+The Committee decided to consider appropriate monetary policy, and in the labor market appeared to have remains largely unchanged. However, there were no likely reflecting the risks to the attain or the economic outlook and the Committee's goals of price stability. The Committee call and hospitality and the United States a
+
+================================================================
+ITERATION 1800   val loss 0.7018
+================================================================
+The Committee decided to keep the target range for the federal funds rate at 1 to 1-3 percent.
+Voting for the FOMC monetary policy action were: Ben S. Bernanke, Chairman; William C. Dudley, Vice Chairman; This respect to the Board also approved a Senior Reserve Bank of China, the Bank of Dallas, the Bank of Canada members
+
+================================================================
+ITERATION 2000   val loss 0.6977
+================================================================
+The Committee decided to keep the target range for the federal funds rate lower in the longer run. To support sell inflation expectations, over the medium term, largely the semiannual inflation remained stable. The staff expected that it would be appropriate to return in 2020, the Committee indicated that it will continue 
