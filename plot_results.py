@@ -138,6 +138,39 @@ def plot_axis(axis):
     plt.close(fig)
 
 
+def plot_context_curve():
+    """The chunk-size sweep as a curve: final loss against context length."""
+    runs = [("ctx0016", 16), ("ctx0032", 32), ("ctx0064", 64), ("ctx0128", 128),
+            ("ctx0256", 256), ("ctx0512", 512), ("ctx1024", 1024)]
+    pts = []
+    for run, ctx in runs:
+        p = RES / "experiments" / run / "eval_log.csv"
+        if p.exists():
+            pts.append((ctx, read_csv(p)[-1]["val_loss"]))
+    if len(pts) < 4:
+        return
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    best = ys.index(min(ys))
+    fig, ax = plt.subplots(figsize=(8, 4.5), constrained_layout=True)
+    ax.plot(xs, ys, color=SERIES[0], lw=2, zorder=2)
+    ax.plot(xs, ys, "o", ms=6, mfc=SURFACE, mec=SERIES[0], mew=2, zorder=3)
+    ax.plot([xs[best]], [ys[best]], "o", ms=8, color=SERIES[0], mec=SURFACE, mew=1.5, zorder=4)
+    for i in (0, best, len(xs) - 1):
+        ax.annotate(f"{ys[i]:.3f}", (xs[i], ys[i]), xytext=(0, 12), textcoords="offset points",
+                    ha="center", fontsize=9, color=INK)
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([str(v) for v in xs])
+    ax.set_xlabel("chunk size (characters of context, log scale)")
+    ax.set_ylabel("val loss @ 1000 iters (nats / char)")
+    ax.set_title("Same characters per step, seven chunk sizes")
+    ax.grid(axis="x", visible=False)
+    ax.set_axisbelow(True)
+    ax.set_ylim(min(ys) - 0.06, max(ys) + 0.09)
+    fig.savefig(FIG / "context_curve.png", dpi=160)
+    plt.close(fig)
+
+
 def plot_summary():
     panels = [(axis, *load_runs(axis)) for axis in AXES]
     panels = [p for p in panels if len(p[2]) >= 2]
@@ -197,6 +230,7 @@ def plot_finetune():
 if __name__ == "__main__":
     plot_main()
     plot_finetune()
+    plot_context_curve()
     for axis in AXES:
         plot_axis(axis)
     plot_summary()

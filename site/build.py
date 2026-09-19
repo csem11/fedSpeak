@@ -72,6 +72,20 @@ AXES = {
     "size": ("Model size", [("size0.4M", "0.40M"), ("ctx0256", "3.17M"), ("size10.6M", "10.65M")]),
     "lr": ("Peak learning rate", [("lr3e-4", "3e-4"), ("ctx0256", "1e-3"), ("lr3e-3", "3e-3")]),
 }
+# The full chunk-size sweep: one point per context length, for the U-curve.
+# The over-time chart keeps four representative sizes so the categorical
+# palette stays within its validated range.
+CONTEXT_RUNS = [("ctx0016", 16), ("ctx0032", 32), ("ctx0064", 64), ("ctx0128", 128),
+                ("ctx0256", 256), ("ctx0512", 512), ("ctx1024", 1024)]
+curve = []
+for run, ctx in CONTEXT_RUNS:
+    p = RES / "experiments" / run / "eval_log.csv"
+    if p.exists():
+        ev = read_csv(p)
+        curve.append({"run": run, "ctx": ctx, "final": ev[-1]["val_loss"],
+                      "minutes": round(ev[-1]["elapsed_s"] / 60, 1), "seqs_per_step": 16384 // ctx})
+data["context_curve"] = curve
+
 data["ablations"] = {}
 for axis, (title, members) in AXES.items():
     runs = []

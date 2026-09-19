@@ -54,41 +54,57 @@ same compute", and it is also the source of the most interesting result.
 For scale: the uniform-guess loss over 86 characters is 4.45, and the main
 run reaches 0.698 with the 10.65M model after twice this budget.
 
-## Context length: more is not better at this budget
+## Context length: a real optimum, not a plateau
 
-![Context length](results/figures/ablation_context.png)
+![Chunk size curve](results/figures/context_curve.png)
 
-Going from 16 to 64 characters of context is worth 0.19 nats, the largest
-single improvement on this axis. Going from 64 to 256 is worth nothing: the
-256-context baseline finishes slightly *worse* (0.922 vs 0.901). Going to 1024 is actively harmful: 1.276, worse than the 16-character model, and it takes nearly twice as long per run because attention cost grows with context.
+The first version of this sweep tested four sizes, 16, 64, 256 and 1024, and
+concluded that 64 and 256 were tied and that context beyond 64 bought nothing.
+Filling in 32, 128 and 512 shows that was an artifact of where the points
+landed. The curve is a clean U with a distinct minimum:
 
-Three things are happening at once, and the experiment can't fully separate
-them:
+| Chunk size | Sequences per step | Val loss @ 1000 |
+|---|---|---|
+| 16 | 1024 | 1.090 |
+| 32 | 512 | 0.975 |
+| 64 | 256 | 0.901 |
+| 128 | 128 | **0.882** |
+| 256 (baseline) | 64 | 0.922 |
+| 512 | 32 | 1.013 |
+| 1024 | 16 | 1.276 |
 
-1. **Most of the predictable structure in English-like text is local.** The
-   next character depends overwhelmingly on the previous few dozen. A model
-   with 64 characters of context can see the whole current word, the previous
-   two or three, and usually the start of the sentence. Beyond that, extra
-   context only helps for things like closing a quotation, continuing a
-   roster, or keeping a district name consistent, which are rarer.
-2. **Fewer sequences per step means noisier gradients.** With characters per
-   step fixed, the 1024-context run averages its gradient over 16 documents
-   slices instead of 1024. Each step is a worse estimate of the true
-   gradient, and 1000 steps is not enough to average that out.
-3. **Long context takes longer to learn to use.** The curves show this
+Every run sees the same 16,384 characters per step, so halving the chunk size
+doubles the number of independent sequences in each gradient. The minimum sits
+at **128 characters** (0.882), and 64 and 256 are not tied by
+coincidence, they are the two shoulders on either side of it. Four points had
+stepped over the answer.
+
+Three effects are competing, and the sweep cannot fully separate them:
+
+1. **Most predictable structure in English-like text is local.** The next
+   character depends overwhelmingly on the previous few dozen. At 128
+   characters a model can see the current word, the previous two or three, and
+   usually the start of the sentence. That is where the return flattens.
+2. **Fewer sequences per step means noisier gradients.** At 1024 characters the
+   gradient is averaged over 16 document slices instead of 1024, and 1000 steps
+   is not enough to average that noise away. This is why the right-hand side of
+   the curve rises so steeply.
+3. **Long context takes longer to learn to use.** The over-time curves
+   (`results/figures/ablation_context.png`) show it
    directly: the 16-character model has the lowest loss until iteration 250,
-   the 64-character model until iteration 800, and the 256-character model
-   only draws level in the last 200 iterations while still falling faster
-   than the others. Attention has to discover
-   that a character 500 positions back is worth attending to. Early in
-   training it hasn't, so the extra positions are cost without benefit. The
-   main 2000-iteration run at context 256 reaches 0.698, but that run is also
-   3x bigger, so the two effects can't be separated from this data.
+   the 64-character model until 800, and the 256-character model only draws
+   level in the last 200 iterations while still falling faster than the others.
 
-The practical reading: for a character model on this corpus, 64 to 256
-characters of context is the right range, and the choice between them should
-be made on what you want the *samples* to do, not on loss. A 64-character
-model can't hold a "Present:" roster together; a 256-character model can.
+A caveat that matters for reading the table: **each model is scored in windows
+of its own chunk size**, so the axis mixes "long context helps the model learn"
+with "long context helps the model predict". A model trained at 16 characters
+is also only ever tested with 16 characters of history. The next section
+separates the two.
+
+Wall-clock times are not comparable across these runs. The original four were
+measured on an idle machine in one session; the three fill-in runs were done
+later, and the 512-character run overlapped with another job. Only the losses,
+which are deterministic given the seed, can be compared.
 
 ## Model size: the biggest lever
 
