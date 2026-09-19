@@ -279,8 +279,8 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
   <div class="prose"><p>Eleven runs of 1000 iterations each, at a fixed 16,384 characters per step, on a 3.2M-parameter baseline so each one takes minutes rather than an hour. Every run changes exactly one thing. Characters per step are held constant when the chunk size changes, so the 16-character run sees 1024 sequences per gradient and the 1024-character run sees 16, which turns out to be the source of the most interesting result.</p></div>
   <div class="figure"><div class="chart" id="chartAblSummary"></div><div class="cap">Final validation loss for the four representative chunk sizes alongside the size and learning-rate runs. Model size is the biggest lever, and the default learning rate was too cautious. The chunk-size axis is resolved in full below.</div></div>
   <h3>Chunk size, in full</h3>
-  <div class="prose"><p id="ctxProse"></p><p>The first version of this sweep tested only 16, 64, 256 and 1024, and concluded that 64 and 256 were tied, so chunks beyond 64 characters bought nothing. Filling in the gaps shows that was an artifact of where the four points happened to land: those two are the shoulders on either side of a real minimum the coarse sweep stepped over.</p></div>
-  <div class="figure"><div class="chart" id="chartCtxCurve"></div><div class="cap" id="ctxCurveCap"></div></div>
+  <div class="prose"><p id="ctxProse"></p><p>The first version of this sweep tested only 16, 64, 256 and 1024, and concluded that 64 and 256 were tied. Filling in the gaps showed a U with a minimum at 128. Then scoring every model fairly moved the minimum again, to 64, and showed that most of the left side of the U came from the evaluation, not the models. Given its full 16 characters, about three words, the smallest model predicts nearly as well as the best: most of what makes the next character predictable sits inside the current word.</p></div>
+  <div class="figure"><div class="chart" id="chartCtxCurve"></div><div class="legend"><span style="--c:var(--s1)">own-window loss (what the training loop reports)</span><span style="--c:var(--s2)">same 60,000 target characters, full context each</span></div><div class="cap" id="ctxCurveCap"></div></div>
   <div class="figure"><div class="chart" id="chartAblContext"></div><div class="cap">The four representative sizes over the course of the run. Short context leads early; 256 only draws level in the last 200 iterations; 1024 never recovers from averaging over 16 sequences per step.</div></div>
   <div class="two">
     <div class="figure"><div class="chart" id="chartAblSize"></div></div>
@@ -289,7 +289,7 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
   <div class="prose">
     <p><strong>Chunk size.</strong> Short chunks learn faster and long chunks learn further: the 16-character model leads until iteration 250, the 64-character model until 800, and 256 only draws level in the last 200 iterations. At 1024 the gradient is averaged over 16 sequences instead of 1024, and 1000 steps is not enough to recover from that noise. Each model is also scored in windows of its own chunk size, so this axis mixes how much context helps learning with how much it helps prediction.</p>
     <p><strong>Size.</strong> Eight times the parameters between 0.4M and 3.2M is worth half a nat, roughly the difference between "accommodity" and "accommodative". Another 3.4x to 10.65M is worth 0.12 more.</p>
-    <p><strong>Learning rate.</strong> nanoGPT's default of 1e-3 was tuned for 75 passes over Shakespeare. In a single pass over a large corpus the model is under-trained rather than over-fitted, and 3x higher wins by 0.045 with no instability.</p>
+    <p><strong>Learning rate.</strong> On the 3.2M proxy, 3x higher than nanoGPT's default wins by 0.045. Applied to the 10.65M headline model it <em>lost</em>: 0.708 against 0.698, and it trailed for the whole run. The stable learning rate usually falls as a network widens, which is the problem maximal-update parameterisation exists to solve. Without it, a rate tuned on a small proxy doesn't transfer, and the headline model keeps 1e-3.</p>
   </div>
   <h3>Per-source difficulty</h3>
   <div class="prose"><p>The prediction going in was that statements would be hardest: they're 1.6% of the corpus. They are the easiest by a wide margin, for every model, because consecutive statements reuse whole sentences verbatim. The Beige Book, two thirds of the training data, is the hardest, because twelve districts describe different businesses in different words every six weeks. Loss per character measures novelty, not importance.</p></div>
@@ -369,8 +369,10 @@ const ticks = (lo, hi, n = 5) => {
 
 /* ---------- line chart with hover ---------- */
 let clipSeq = 0;
-function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title, refLine, endLabels = true, xTicks = null, markers = false, labelPoints = null, fmtX = (v) => tabular(v), fmtY = (v) => fmt(v), h = 300 }) {
-  const W = 720, H = h, P = { l: 48, r: 96, t: title ? 30 : 22, b: 40 };
+function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title, refLine, endLabels = true, xTicks = null, markers = false, labelPoints = null, fmtX = (v) => tabular(v), fmtY = (v) => fmt(v), h = 300, w = 720 }) {
+  // w sets the drawing width; a narrower viewBox renders the same 11px text
+  // larger when the chart sits in a half-width column.
+  const W = w, H = h, P = { l: 48, r: 96, t: title ? 44 : 30, b: 40 };
   container.innerHTML = "";
   const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title || yLabel });
   const allX = series.flatMap(s => s.pts.map(p => p[0])), allY = series.flatMap(s => s.pts.map(p => p[1]));
@@ -389,7 +391,7 @@ function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title,
   for (const v of (xTicks || ticks(xd[0], xd[1], 6))) axis.append(el("svg:text", { x: x(v), y: H - P.b + 18, "text-anchor": "middle", text: fmtX(v) }));
   axis.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: H - P.b, y2: H - P.b }));
   axis.append(el("svg:text", { x: W - P.r, y: H - 6, "text-anchor": "end", class: "lbl", text: xLabel }));
-  axis.append(el("svg:text", { x: 4, y: P.t - 2, class: "lbl", text: yLabel }));
+  axis.append(el("svg:text", { x: 4, y: P.t - 14, class: "lbl", text: yLabel }));
   svg.append(grid, axis);
   if (title) svg.append(el("svg:text", { x: P.l, y: 16, class: "title", text: title }));
   if (refLine != null) { svg.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(refLine), y2: y(refLine), stroke: "var(--ink-3)", "stroke-dasharray": "4 4" })); }
@@ -398,7 +400,8 @@ function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title,
     const d = s.pts.map((p, j) => (j ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
     plot.append(el("svg:path", { d, fill: "none", stroke: s.color || SERIES[i], "stroke-width": s.width || 2, "stroke-dasharray": s.dash || "none", opacity: s.opacity ?? 1, "stroke-linejoin": "round" }));
     if (markers) s.pts.forEach((pt, j) => {
-      const best = labelPoints && labelPoints.includes(j);
+      const idx = s.labelIdx ?? labelPoints;
+      const best = idx && idx.includes(j);
       plot.append(el("svg:circle", { cx: x(pt[0]), cy: y(pt[1]), r: best ? 5.5 : 4, fill: best ? (s.color || SERIES[i]) : "var(--paper)", stroke: s.color || SERIES[i], "stroke-width": 2 }));
       if (best) plot.append(el("svg:text", { x: x(pt[0]), y: y(pt[1]) - 12, "text-anchor": "middle", class: "endlbl", text: fmtY(pt[1]) }));
     });
@@ -430,14 +433,14 @@ function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title,
 
 /* ---------- bar chart (grouped) ---------- */
 function barChart(container, { groups, seriesNames, colors, yLabel, title, fmtY = (v) => fmt(v), h = 260, yMax }) {
-  const W = 720, H = h, P = { l: 48, r: 12, t: title ? 30 : 22, b: 40 };
+  const W = 720, H = h, P = { l: 48, r: 12, t: title ? 44 : 30, b: 40 };
   container.innerHTML = "";
   const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title || yLabel });
   const ymax = yMax || Math.max(...groups.flatMap(g => g.values)) * 1.18;
   const y = lin(0, ymax, H - P.b, P.t);
   const grid = el("svg:g", { class: "grid" }), axis = el("svg:g", { class: "axis" });
   for (const v of ticks(0, ymax)) { grid.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) })); axis.append(el("svg:text", { x: P.l - 8, y: y(v) + 4, "text-anchor": "end", text: fmtY(v) })); }
-  axis.append(el("svg:text", { x: 4, y: P.t - 2, class: "lbl", text: yLabel }));
+  axis.append(el("svg:text", { x: 4, y: P.t - 14, class: "lbl", text: yLabel }));
   if (title) svg.append(el("svg:text", { x: P.l, y: 16, class: "title", text: title }));
   svg.append(grid, axis);
   const gw = (W - P.l - P.r) / groups.length, n = seriesNames.length, bw = Math.min(46, gw * 0.7 / n);
@@ -461,14 +464,14 @@ function barChart(container, { groups, seriesNames, colors, yLabel, title, fmtY 
 /* ---------- stacked bars (docs per year) ---------- */
 function stackedYears(container, rows) {
   const keys = [["statements_docs", "statements", "var(--s1)"], ["minutes_docs", "minutes", "var(--s2)"], ["beigebook_docs", "Beige Books", "var(--s3)"]];
-  const W = 720, H = 260, P = { l: 40, r: 12, t: 22, b: 36 };
+  const W = 720, H = 260, P = { l: 40, r: 12, t: 30, b: 36 };
   container.innerHTML = "";
   const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Documents per year by source" });
   const ymax = Math.max(...rows.map(r => keys.reduce((a, k) => a + r[k[0]], 0))) * 1.1;
   const y = lin(0, ymax, H - P.b, P.t), gw = (W - P.l - P.r) / rows.length;
   const grid = el("svg:g", { class: "grid" }), axis = el("svg:g", { class: "axis" });
   for (const v of ticks(0, ymax, 4)) { grid.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) })); axis.append(el("svg:text", { x: P.l - 8, y: y(v) + 4, "text-anchor": "end", text: v })); }
-  axis.append(el("svg:text", { x: 4, y: P.t - 2, class: "lbl", text: "documents" }));
+  axis.append(el("svg:text", { x: 4, y: P.t - 14, class: "lbl", text: "documents" }));
   svg.append(grid, axis);
   const tip = el("div", { class: "tip" });
   rows.forEach((r, i) => {
@@ -565,20 +568,26 @@ const CC = DATA.context_curve;
 if (CC && CC.length) {
   const lg = (v) => Math.log2(v);
   const best = CC.reduce((b, r, i) => (r.final < CC[b].final ? i : b), 0);
+  const hasFair = CC.every(r => r.fair != null);
+  const bestFair = hasFair ? CC.reduce((b, r, i) => (r.fair < CC[b].fair ? i : b), 0) : null;
+  const ys = CC.flatMap(r => hasFair ? [r.final, r.fair] : [r.final]);
   lineChart($("#chartCtxCurve"), {
-    series: [{ pts: CC.map(r => [lg(r.ctx), r.final]), label: undefined, color: "var(--s1)" }],
+    series: [{ pts: CC.map(r => [lg(r.ctx), r.final]), label: "own window", color: "var(--s1)", labelIdx: [best] },
+             ...(hasFair ? [{ pts: CC.map(r => [lg(r.ctx), r.fair]), label: "same targets", color: "var(--s2)", labelIdx: [bestFair] }] : [])],
     xLabel: "context length (characters, log scale)", yLabel: "val loss @ 1000 iters (nats / char)",
     xDomain: [lg(CC[0].ctx) - 0.3, lg(CC[CC.length - 1].ctx) + 0.3],
-    yDomain: [Math.min(...CC.map(r => r.final)) - 0.06, Math.max(...CC.map(r => r.final)) + 0.12],
-    xTicks: CC.map(r => lg(r.ctx)), markers: true, labelPoints: [0, best, CC.length - 1],
-    title: "Same characters per step, seven chunk sizes", endLabels: false,
+    yDomain: [Math.min(...ys) - 0.06, Math.max(...ys) + 0.1],
+    xTicks: CC.map(r => lg(r.ctx)), markers: true, endLabels: false,
+    title: "Seven chunk sizes, scored two ways",
     fmtX: (v) => String(Math.round(2 ** v)), fmtY: (v) => fmt(v, 2), h: 300,
   });
-  $("#ctxProse").textContent = `Seven chunk sizes, each trained on the same 16,384 characters per step, so halving the chunk doubles the number of independent sequences in every gradient. The curve is a clean U with its minimum at ${CC[best].ctx} characters.`;
-  $("#ctxCurveCap").textContent = `Every run sees 16,384 characters per step, so shorter chunks mean more sequences per step. The minimum is at ${CC[best].ctx} characters (${fmt(CC[best].final)} nats/char); the curve is flat from ${CC[Math.max(0, best - 1)].ctx} to ${CC[Math.min(CC.length - 1, best + 1)].ctx} and rises steeply at both ends.`;
+  $("#ctxProse").textContent = `Seven chunk sizes, each trained on the same 16,384 characters per step, so halving the chunk doubles the number of independent sequences in every gradient. Scored the way a training loop reports it, the curve is a U with its minimum at ${CC[best].ctx} characters.`;
+  $("#ctxCurveCap").textContent = hasFair
+    ? `Blue scores each model in windows of its own chunk size, averaging in early positions that have almost no history; its minimum is ${CC[best].ctx}. Orange scores every model on the same characters with its full context; the minimum moves to ${CC[bestFair].ctx}, the left side nearly flattens, and the collapse at 512 and 1024 survives, so that part is a real learning cost.`
+    : `Every run sees 16,384 characters per step. The minimum is at ${CC[best].ctx} characters.`;
 }
-const ablLine = (id, ax, unit, hh = 260) => lineChart($(id), { series: ax.runs.map((r, i) => ({ pts: r.eval.map(e => [e.iter, e.val_loss]), label: r.label, color: SERIES[i] })), xLabel: "iter", yLabel: "val loss", yDomain: [0.6, 2.2], xDomain: [0, 1000], title: ax.title + (unit ? ` (${unit})` : ""), fmtY: (v) => fmt(v, 2), h: hh });
-ablLine("#chartAblContext", A.context, "characters", 300); ablLine("#chartAblSize", A.size, "parameters"); ablLine("#chartAblLr", A.lr, "peak");
+const ablLine = (id, ax, unit, hh = 260, ww = 720) => lineChart($(id), { series: ax.runs.map((r, i) => ({ pts: r.eval.map(e => [e.iter, e.val_loss]), label: r.label, color: SERIES[i] })), xLabel: "iter", yLabel: "val loss", yDomain: [0.6, 2.2], xDomain: [0, 1000], title: ax.title + (unit ? ` (${unit})` : ""), fmtY: (v) => fmt(v, 2), h: hh, w: ww });
+ablLine("#chartAblContext", A.context, "characters", 300); ablLine("#chartAblSize", A.size, "parameters", 320, 440); ablLine("#chartAblLr", A.lr, "peak", 320, 440);
 
 /* ---------- per-source ---------- */
 const S = DATA.by_source;

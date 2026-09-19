@@ -106,6 +106,52 @@ measured on an idle machine in one session; the three fill-in runs were done
 later, and the 512-character run overlapped with another job. Only the losses,
 which are deterministic given the seed, can be compared.
 
+## Scored fairly, the answer moves
+
+The table above scores each model in windows of its own chunk size, averaging
+over every position, including the first few, which have almost no history.
+That punishes short-chunk models twice: they have less context *and* a larger
+share of their scored predictions are made with very little of it.
+
+`eval_common_context.py` removes the second effect. Every model is scored on the
+same 60,000 validation characters, and for each one it is given as much history
+as its chunk size allows. Only the last 4 predictions of each window count, so
+every scored character is predicted with close to the model's full context.
+The masked-loss path was checked against a direct computation before use.
+
+| Chunk size | Own-window loss | Same targets, full context |
+|---|---|---|
+| 16 | 1.090 | 0.820 |
+| 32 | 0.975 | 0.795 |
+| 64 | 0.901 | **0.785** |
+| 128 | **0.882** | 0.806 |
+| 256 | 0.922 | 0.854 |
+| 512 | 1.013 | 1.003 |
+| 1024 | 1.276 | 1.303 |
+
+Three things change:
+
+- **The optimum moves from 128 to 64.** Under fair scoring the 64-character
+  model is best.
+- **The left side of the U almost disappears.** From 16 to 64 characters the
+  fair loss improves by only 0.035, against 0.19 under own-window scoring. Most
+  of the apparent benefit of longer chunks at the short end was the evaluation
+  penalising early positions. Given its full 16 characters, about three words,
+  the smallest model predicts nearly as well as the best one: most of what
+  makes the next character predictable is inside the current word.
+- **The right side does not move.** At 512 and 1024 both scoring methods agree,
+  so the collapse is a genuine learning cost (16 sequences per gradient is too
+  few in 1000 steps), not an evaluation artifact.
+
+The absolute values in the two columns come from different slices of the
+validation text and should not be subtracted from each other. The comparison
+that is fair is down each column: every model in the right-hand column was
+scored on exactly the same characters.
+
+The lesson for the write-up as a whole: **how a model is evaluated changed
+which chunk size looked best.** The own-window number is what a training loop
+reports by default, and on this axis it was misleading.
+
 ## Model size: the biggest lever
 
 ![Model size](results/figures/ablation_size.png)
@@ -144,9 +190,26 @@ the step log. nanoGPT's default of 1e-3 was tuned for 5000 iterations over a
 rate helps it settle. In a single pass over a large corpus, the model is
 under-trained rather than over-fitted, and a more aggressive rate helps.
 
-This is the cheapest improvement available to the main run and it was not
-taken, because the main run was built to match nanoGPT's reference config,
-not to be optimal.
+### It did not transfer
+
+The obvious next step was to apply this to the headline model: the same
+10.65M-parameter, 2000-iteration run that scored 0.698, changing only the peak
+learning rate from 1e-3 to 3e-3. It got worse.
+
+| Model | Peak lr | Val @ 1000 | Val @ 2000 |
+|---|---|---|---|
+| 3.17M, 1000 iters (ablation) | 1e-3 | 0.922 | |
+| 3.17M, 1000 iters (ablation) | 3e-3 | **0.877** | |
+| 10.65M, 2000 iters (headline) | 1e-3 | **0.819** | **0.698** |
+| 10.65M, 2000 iters (headline) | 3e-3 | 0.862 | 0.708 |
+
+The higher rate trailed for the whole run, not just at the end. A
+hyperparameter tuned on a smaller, shorter proxy did not carry over to the
+model it was meant to improve. This is a well-known failure: the stable
+learning rate typically falls as a network gets wider, which is the problem
+maximal-update parameterisation (muP) was designed to solve by making the
+optimum transfer across width. Without it, the learning rate has to be tuned at
+the scale you intend to use. The headline model keeps 1e-3.
 
 ## Per-source difficulty: statements are the easiest text
 

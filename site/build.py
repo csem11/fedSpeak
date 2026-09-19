@@ -84,7 +84,14 @@ for run, ctx in CONTEXT_RUNS:
         ev = read_csv(p)
         curve.append({"run": run, "ctx": ctx, "final": ev[-1]["val_loss"],
                       "minutes": round(ev[-1]["elapsed_s"] / 60, 1), "seqs_per_step": 16384 // ctx})
+fair = RES / "common_context_eval.csv"
+if fair.exists():
+    by_run = {r["run"]: r["common_grid_loss"] for r in read_csv(fair)}
+    for c in curve:
+        c["fair"] = by_run.get(c["run"])
 data["context_curve"] = curve
+lr_full = RES / "experiments" / "main_lr3e-3" / "eval_log.csv"
+data["lr_transfer"] = {"lr1e-3": 0.698, "lr3e-3": read_csv(lr_full)[-1]["val_loss"]} if lr_full.exists() else None
 
 data["ablations"] = {}
 for axis, (title, members) in AXES.items():
