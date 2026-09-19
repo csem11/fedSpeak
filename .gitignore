@@ -16,3 +16,4 @@ finetune/out/
 # Tokenised tensors are reproducible from data/clean via prepare.py
 data/*.bin
 data/meta.pkl
+playground_gen.log

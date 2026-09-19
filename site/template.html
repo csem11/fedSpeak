@@ -1,0 +1,560 @@
+<title>FedSpeak</title>
+<meta name="description" content="A language model trained from scratch on thirty years of Federal Reserve prose: what next-token pretraining learns, what it fabricates, and what fine-tuning changes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --paper: #f6f5f0;
+  --paper-2: #edece5;
+  --paper-3: #e3e2da;
+  --ink: #151b18;
+  --ink-2: #4d5753;
+  --ink-3: #7a837e;
+  --rule: #d9d8cf;
+  --accent: #1d6b4f;
+  --accent-soft: #d8ebe2;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #4a3aa7;
+  --tag-form: #1b8f66; --tag-fab: #d23f3e; --tag-drift: #c98500; --tag-bug: #5b4bc4;
+  --tag-form-bg: #d7efe4; --tag-fab-bg: #f8dada; --tag-drift-bg: #f7e9c4; --tag-bug-bg: #e3dff7;
+  --shadow: 0 1px 2px rgba(20,27,24,.06), 0 8px 24px rgba(20,27,24,.06);
+  --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #121615; --paper-2: #1a1f1d; --paper-3: #232927;
+    --ink: #e9e8e0; --ink-2: #b4bab5; --ink-3: #7f8783; --rule: #2c3330;
+    --accent: #52b98c; --accent-soft: #1d3a2e;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #9085e9;
+    --tag-form: #4fc99a; --tag-fab: #f07a79; --tag-drift: #e8b040; --tag-bug: #a99cf0;
+    --tag-form-bg: #1b3a2d; --tag-fab-bg: #47201f; --tag-drift-bg: #3e3316; --tag-bug-bg: #2b2647;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #121615; --paper-2: #1a1f1d; --paper-3: #232927;
+  --ink: #e9e8e0; --ink-2: #b4bab5; --ink-3: #7f8783; --rule: #2c3330;
+  --accent: #52b98c; --accent-soft: #1d3a2e;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #9085e9;
+  --tag-form: #4fc99a; --tag-fab: #f07a79; --tag-drift: #e8b040; --tag-bug: #a99cf0;
+  --tag-form-bg: #1b3a2d; --tag-fab-bg: #47201f; --tag-drift-bg: #3e3316; --tag-bug-bg: #2b2647;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; padding-inline: 16px; padding-block: 0 80px; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 500; line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.6rem, 7vw, 4.6rem); letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.7rem, 3.5vw, 2.3rem); margin-block: 8px 20px; }
+h3 { font-size: 1.2rem; margin-block: 28px 10px; }
+p { margin: 0 0 1em; max-width: 68ch; }
+.lede { font-family: var(--serif); font-size: 1.2rem; color: var(--ink-2); max-width: 60ch; }
+.wrap { max-width: 920px; margin-inline: auto; }
+.prose { max-width: 68ch; }
+strong { font-weight: 600; }
+code, .mono { font-family: var(--mono); font-size: .92em; }
+.eyebrow { font-family: var(--mono); font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.muted { color: var(--ink-2); }
+.small { font-size: .9rem; }
+hr { border: 0; border-top: 1px solid var(--rule); margin-block: 56px; }
+
+/* nav */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); margin-inline: -16px; padding-inline: 16px; }
+.nav .wrap { display: flex; gap: 18px; align-items: center; height: 52px; overflow-x: auto; scrollbar-width: none; }
+.nav .wrap::-webkit-scrollbar { display: none; }
+.nav .brand { font-family: var(--serif); font-weight: 600; font-size: 1.05rem; color: var(--ink); text-decoration: none; margin-right: 6px; }
+.nav a.link { font-family: var(--mono); font-size: .78rem; color: var(--ink-2); text-decoration: none; white-space: nowrap; letter-spacing: .04em; }
+.nav a.link:hover { color: var(--ink); }
+.nav .spacer { flex: 1; }
+.theme-btn { border: 1px solid var(--rule); background: var(--paper-2); color: var(--ink-2); border-radius: 999px; font: inherit; font-family: var(--mono); font-size: .75rem; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+
+/* hero */
+.hero { padding-block: 64px 40px; }
+.hero .thesis { font-family: var(--serif); font-size: clamp(1.15rem, 2.4vw, 1.45rem); color: var(--ink-2); max-width: 34em; margin-block: 18px 28px; }
+.hero .thesis em { color: var(--ink); font-style: italic; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-block: 24px; }
+.stat { border-top: 2px solid var(--ink); padding-top: 10px; }
+.stat .n { font-family: var(--mono); font-size: 1.7rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .l { font-size: .82rem; color: var(--ink-2); margin-top: 4px; }
+.callout { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 14px 18px; border-radius: 0 8px 8px 0; max-width: 68ch; }
+.callout p:last-child { margin-bottom: 0; }
+
+/* sections */
+section { padding-block: 40px 8px; scroll-margin-top: 70px; }
+.section-head { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: baseline; }
+.section-head .num { font-family: var(--mono); color: var(--ink-3); font-size: 1rem; }
+
+/* panels / figures */
+.figure { margin-block: 20px 28px; }
+.figure .cap { font-size: .86rem; color: var(--ink-2); margin-top: 8px; max-width: 72ch; }
+.chart { position: relative; width: 100%; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .axis text, .chart .lbl { font-family: var(--mono); font-size: 11px; fill: var(--ink-2); }
+.chart .grid line { stroke: var(--rule); stroke-width: 1; }
+.chart .axis line, .chart .axis path { stroke: var(--rule); }
+.chart .endlbl { font-family: var(--mono); font-size: 11px; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.chart .title { font-family: var(--sans); font-weight: 600; font-size: 13px; fill: var(--ink); }
+.chart .xh { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--paper); font-family: var(--mono); font-size: 11.5px; line-height: 1.45; padding: 6px 9px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .08s; z-index: 3; }
+.tip.on { opacity: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--mono); font-size: .76rem; color: var(--ink-2); margin-top: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: middle; }
+.legend span.dash::before { background: repeating-linear-gradient(90deg, var(--c) 0 4px, transparent 4px 7px); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+
+table { border-collapse: collapse; width: 100%; font-size: .92rem; font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; margin-block: 12px 24px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--mono); font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); font-weight: 500; }
+td.num, th.num { text-align: right; font-family: var(--mono); }
+td.best { font-weight: 600; color: var(--accent); }
+
+/* generated text */
+.doc { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 8px; padding: 18px 20px; font-family: var(--mono); font-size: .88rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 120px; position: relative; }
+.doc .stamp { position: absolute; top: 10px; right: 12px; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.doc.prompt-mark .p { color: var(--accent); font-weight: 500; }
+.doc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-family: var(--mono); font-size: .76rem; color: var(--ink-2); margin-bottom: 6px; flex-wrap: wrap; }
+
+/* controls */
+.seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.seg button, .chips button { font: inherit; font-family: var(--mono); font-size: .8rem; border: 1px solid var(--rule); background: var(--paper-2); color: var(--ink-2); padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
+.seg button:hover, .chips button:hover { border-color: var(--ink-3); color: var(--ink); }
+.seg button[aria-pressed="true"], .chips button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 10px 14px; }
+.chips button { border-radius: 8px; text-align: left; }
+.chips button small { display: block; font-family: var(--sans); font-size: .72rem; opacity: .75; }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rule); margin-bottom: 14px; }
+.tabs button { font: inherit; font-family: var(--sans); font-weight: 500; font-size: .92rem; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--ink-2); cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs button small { display: block; font-family: var(--mono); font-weight: 400; font-size: .7rem; color: var(--ink-3); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.range-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; font-family: var(--mono); font-size: .8rem; color: var(--ink-2); }
+.range-row .v { font-variant-numeric: tabular-nums; color: var(--ink); }
+textarea, input[type=text] { font: inherit; font-family: var(--mono); font-size: .9rem; width: 100%; background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; resize: vertical; }
+.tokens { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 10px; font-family: var(--mono); font-size: .72rem; }
+.tok { display: inline-flex; flex-direction: column; align-items: center; min-width: 22px; padding: 3px 4px; border-radius: 4px; background: var(--paper-3); color: var(--ink-2); }
+.tok b { color: var(--ink); font-weight: 500; font-size: .82rem; }
+.tok.unk { background: var(--tag-fab-bg); color: var(--tag-fab); }
+.vocab { display: flex; flex-wrap: wrap; gap: 3px; font-family: var(--mono); font-size: .78rem; margin-block: 8px 4px; }
+.vocab span { width: 26px; height: 26px; display: inline-grid; place-items: center; border-radius: 4px; background: var(--paper-3); color: var(--ink); }
+
+/* annotated */
+.ann { font-family: var(--mono); font-size: .88rem; line-height: 1.75; white-space: pre-wrap; background: var(--paper-2); border: 1px solid var(--rule); border-radius: 8px; padding: 18px 20px; }
+.ann span[data-tag] { border-radius: 3px; padding: 1px 2px; cursor: help; border-bottom: 2px solid var(--tc); background: var(--tb); }
+.ann span[data-tag].off { background: transparent; border-bottom-color: transparent; cursor: default; }
+.ann span[data-tag="form"] { --tc: var(--tag-form); --tb: var(--tag-form-bg); }
+.ann span[data-tag="fabricated"] { --tc: var(--tag-fab); --tb: var(--tag-fab-bg); }
+.ann span[data-tag="drift"] { --tc: var(--tag-drift); --tb: var(--tag-drift-bg); }
+.ann span[data-tag="bug"] { --tc: var(--tag-bug); --tb: var(--tag-bug-bg); }
+.tagkeys { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 10px 12px; }
+.tagkeys button { font: inherit; font-family: var(--mono); font-size: .76rem; border: 1px solid var(--tc); background: var(--tb); color: var(--ink); padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+.tagkeys button[aria-pressed="false"] { opacity: .45; }
+.tagkeys button[data-tag="form"] { --tc: var(--tag-form); --tb: var(--tag-form-bg); }
+.tagkeys button[data-tag="fabricated"] { --tc: var(--tag-fab); --tb: var(--tag-fab-bg); }
+.tagkeys button[data-tag="drift"] { --tc: var(--tag-drift); --tb: var(--tag-drift-bg); }
+.tagkeys button[data-tag="bug"] { --tc: var(--tag-bug); --tb: var(--tag-bug-bg); }
+.note { font-family: var(--sans); font-size: .86rem; color: var(--ink-2); background: var(--paper-2); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 14px; margin-top: 10px; min-height: 44px; }
+.note b { color: var(--ink); font-family: var(--mono); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; margin-right: 8px; }
+
+.pill { display: inline-block; font-family: var(--mono); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--paper-3); color: var(--ink-2); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+details { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 14px; background: var(--paper-2); margin-block: 14px; }
+summary { cursor: pointer; font-weight: 500; }
+pre.raw { font-family: var(--mono); font-size: .74rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-2); margin: 10px 0 0; max-height: 260px; overflow: auto; }
+.verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-block: 20px; }
+.verdict > div { border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; background: var(--paper-2); }
+.verdict h3 { margin-top: 0; }
+.verdict ul { padding-left: 18px; margin: 0; }
+.verdict li { margin-bottom: 6px; }
+footer { border-top: 1px solid var(--rule); margin-top: 60px; padding-top: 24px; font-size: .88rem; color: var(--ink-2); }
+footer code { font-size: .8rem; }
+.repo { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 24px; font-family: var(--mono); font-size: .78rem; }
+kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3); border-radius: 4px; padding: 1px 6px; }
+@media (max-width: 520px) { .section-head { grid-template-columns: 1fr; gap: 4px; } .tabs button { padding: 8px 10px; font-size: .84rem; } }
+</style>
+
+<nav class="nav" aria-label="Sections"><div class="wrap">
+  <a class="brand" href="#top">FedSpeak</a>
+  <a class="link" href="#corpus">00 Corpus</a>
+  <a class="link" href="#tokens">01 Tokens</a>
+  <a class="link" href="#training">02 Training</a>
+  <a class="link" href="#playground">03 Playground</a>
+  <a class="link" href="#ablations">04 Ablations</a>
+  <a class="link" href="#finetune">05 Fine-tune</a>
+  <a class="link" href="#limits">06 Limits</a>
+  <span class="spacer"></span>
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle colour theme">theme</button>
+</div></nav>
+
+<main class="wrap" id="top">
+<header class="hero">
+  <div class="eyebrow">A pretraining mechanism demo</div>
+  <h1>FedSpeak</h1>
+  <p class="thesis">A GPT trained from random weights, one character at a time, on thirty years of Federal Reserve prose. It learns to <em>sound</em> like the Fed. It learns nothing about what the Fed does. This page is about the gap between those two sentences.</p>
+  <div class="stats" id="heroStats"></div>
+  <div class="callout">
+    <p><strong>Mechanism, not a policy tool.</strong> Everything below shows how next-token prediction absorbs the register and structure of a text corpus. Nothing below models Fed decisions, the link between economic data and rates, or any fact. Every date, name, number and vote the models produce is fabricated by construction.</p>
+  </div>
+</header>
+
+<section id="corpus">
+  <div class="section-head"><span class="num">00</span><div><div class="eyebrow">The data</div><h2>747 documents, 36.8 million characters, three registers</h2></div></div>
+  <div class="prose">
+    <p>Three official publications, scraped from the Board of Governors' own archive pages: every FOMC <strong>statement</strong> and set of <strong>minutes</strong> since 1994, and every <strong>Beige Book</strong> since the HTML archive begins in late 1996. Statements are sparse early on because the FOMC only issued one when it changed policy; the spike years are 2001, 2008 and 2020, when it met between meetings.</p>
+  </div>
+  <div class="figure"><div class="chart" id="chartYears"></div><div class="legend" id="legendYears"></div><div class="cap">Documents per year by source. The Beige Book is two thirds of the characters, so the models' default voice leans toward district economic narrative.</div></div>
+  <div class="grid3" id="shareTiles"></div>
+  <div class="prose" style="margin-top:24px">
+    <p>Thirty years of the Fed's website is five URL schemes, four page templates and two character encodings. The scraper follows link <em>labels</em>, which have been stable, rather than URL patterns, which have not, and it hands raw bytes to the parser so 1990s pages in ISO-8859-1 decode correctly. Cleaning removes navigation, press-release framing, footnote markers and comment blocks, and maps typographic quotes and dashes to ASCII.</p>
+  </div>
+  <details><summary>One passage, before and after cleaning (December 1996 minutes)</summary>
+    <div class="two" style="margin-top:12px"><div><div class="pill">raw html as served</div><pre class="raw" id="rawEx"></pre></div><div><div class="pill">after cleaning</div><pre class="raw" id="cleanEx"></pre></div></div>
+  </details>
+</section>
+
+<section id="tokens">
+  <div class="section-head"><span class="num">01</span><div><div class="eyebrow">Tokenisation</div><h2>The vocabulary is the alphabet</h2></div></div>
+  <div class="prose"><p>No byte-pair encoding. Every distinct character in the corpus gets an integer, which makes 86 tokens: newline, space, punctuation, digits, two cases of letters. The model's entire input is a stream of these integers, and its entire output is a probability over the same 86 for what comes next. Type anything and see what the model sees.</p></div>
+  <div class="vocab" id="vocabStrip" aria-label="The 86-character vocabulary"></div>
+  <p class="small muted">The 86 characters, in id order. Space is id 1 and accounts for 14.6% of the corpus.</p>
+  <label for="tokIn" class="small muted">Your text as the model sees it</label>
+  <textarea id="tokIn" rows="2" spellcheck="false">The Committee decided to maintain the target range for the federal funds rate.</textarea>
+  <div class="tokens" id="tokOut" aria-live="polite"></div>
+</section>
+
+<section id="training">
+  <div class="section-head"><span class="num">02</span><div><div class="eyebrow">Phase 1: pretraining from scratch</div><h2>One objective, 2000 steps, 29 minutes</h2></div></div>
+  <div class="prose"><p>The model is Karpathy's nanoGPT, unmodified: 6 layers, 6 heads, 384 wide, 256 characters of context, 10.65M parameters. Every step takes 64 random windows of 256 characters and scores the model on predicting the next character at every position. Cross-entropy, backprop, AdamW, a cosine learning-rate schedule. That is the whole method. Loss is in nats per character; 4.45 is what uniform guessing over 86 characters scores.</p></div>
+  <div class="figure"><div class="chart" id="chartMain"></div><div class="legend"><span style="--c:var(--s1)">train</span><span style="--c:var(--s2)">validation (the most recent 10% of documents)</span><span class="dash" style="--c:var(--ink-3)">uniform guess = ln 86</span></div><div class="cap">Train and validation fall together for the whole run. The validation set is chronological: the model is scored on documents written after everything it trained on.</div></div>
+  <h3>Watch it learn</h3>
+  <div class="prose"><p>The same run again with a checkpoint kept every 200 steps, each given the prompt <span class="mono">The Committee decided to</span>. Drag through the run. The order in which things arrive is the order of their statistical strength: character frequencies, then spelling, then words, then collocations, then sentence templates, then document structure.</p></div>
+  <div class="range-row"><input type="range" id="stageRange" min="0" max="10" value="0" step="1" aria-label="Training iteration"><div><span class="v" id="stageIter">iteration 0</span> &middot; val loss <span class="v" id="stageLoss"></span></div></div>
+  <div class="doc prompt-mark" id="stageDoc" aria-live="polite"></div>
+  <h3>Temperature</h3>
+  <div class="prose"><p>Temperature doesn't change what the model knows; it changes how much of the probability distribution you let it sample from. Low shows what it is most sure of, which for this corpus is boilerplate. High shows the long tail, where fabrication surfaces as misspelling rather than as confident nonsense.</p></div>
+  <div class="seg" id="tempSeg" role="group" aria-label="Sampling temperature"></div>
+  <div class="doc" id="tempDoc" style="margin-top:12px" aria-live="polite"></div>
+</section>
+
+<section id="playground">
+  <div class="section-head"><span class="num">03</span><div><div class="eyebrow">Playground</div><h2>Same prompt, three models</h2></div></div>
+  <div class="prose"><p>Every output here was generated once and saved, with a fixed seed, so the page answers instantly and shows what each model actually produced rather than a cherry-picked run. The three models are the phase 1 character model, an untouched SmolLM2-360M, and that same model after an hour of fine-tuning on this corpus (section 05). The last prompt is a real question, included to show what a base language model does with one.</p></div>
+  <div class="tabs" id="pgTabs" role="tablist"></div>
+  <div class="chips" id="pgChips" role="group" aria-label="Prompts"></div>
+  <div class="doc-head"><span id="pgSettings"></span><span id="pgTiming"></span></div>
+  <div class="doc prompt-mark" id="pgDoc" aria-live="polite"></div>
+  <p class="small muted" style="margin-top:10px">Prompt shown in green. The character model receives the prompt as characters; the SmolLM2 models as BPE tokens. Header prompts in square brackets are the format the fine-tuned model was trained with; the other two models have never seen one.</p>
+</section>
+
+<section id="ablations">
+  <div class="section-head"><span class="num">04</span><div><div class="eyebrow">What moves the loss</div><h2>One knob at a time</h2></div></div>
+  <div class="prose"><p>Eight runs of 1000 iterations each, at a fixed 16,384 characters per step, on a 3.2M-parameter baseline so the sweep fits in an hour. Each run changes exactly one thing. Characters per step are held constant when context changes, so the 16-character run sees 1024 sequences per step and the 1024-character run sees 16, which turns out to be the source of the most interesting result.</p></div>
+  <div class="figure"><div class="chart" id="chartAblSummary"></div><div class="cap">Final validation loss per run. Model size is the biggest lever; context length beyond 64 characters buys nothing at this budget and 1024 is actively harmful; the default learning rate was too cautious.</div></div>
+  <div class="figure"><div class="chart" id="chartAblContext"></div><div class="cap">Validation loss over the run for each context length. Short context leads early; 256 only draws level in the last 200 iterations; 1024 never recovers from averaging over 16 sequences per step.</div></div>
+  <div class="two">
+    <div class="figure"><div class="chart" id="chartAblSize"></div></div>
+    <div class="figure"><div class="chart" id="chartAblLr"></div></div>
+  </div>
+  <div class="prose">
+    <p><strong>Context.</strong> Short context learns faster and long context learns further: the 16-character model leads until iteration 250, the 64-character model until 800, and 256 only draws level in the last 200 iterations. At 1024 the model averages its gradient over 16 sequences instead of 1024, and 1000 steps is not enough to recover from that noise.</p>
+    <p><strong>Size.</strong> Eight times the parameters between 0.4M and 3.2M is worth half a nat, roughly the difference between "accommodity" and "accommodative". Another 3.4x to 10.65M is worth 0.12 more.</p>
+    <p><strong>Learning rate.</strong> nanoGPT's default of 1e-3 was tuned for 75 passes over Shakespeare. In a single pass over a large corpus the model is under-trained rather than over-fitted, and 3x higher wins by 0.045 with no instability.</p>
+  </div>
+  <h3>Per-source difficulty</h3>
+  <div class="prose"><p>The prediction going in was that statements would be hardest: they're 1.6% of the corpus. They are the easiest by a wide margin, for every model, because consecutive statements reuse whole sentences verbatim. The Beige Book, two thirds of the training data, is the hardest, because twelve districts describe different businesses in different words every six weeks. Loss per character measures novelty, not importance.</p></div>
+  <div class="figure"><div class="chart" id="chartSource"></div><div class="legend"><span style="--c:var(--s2)">char model, from scratch</span><span style="--c:var(--s3)">SmolLM2-360M, untouched</span><span style="--c:var(--s1)">SmolLM2-360M, fine-tuned</span></div><div class="cap">Validation loss in bits per character, the unit that puts a character model and a BPE model on the same axis. Lower is easier to predict. Note the character model beats the untouched base model on statements: ten million parameters that have read every statement since 1994 can recite their boilerplate better than 360 million that have read the internet.</div></div>
+</section>
+
+<section id="finetune">
+  <div class="section-head"><span class="num">05</span><div><div class="eyebrow">Phase 2: fine-tuning a pretrained model</div><h2>Same objective, different starting point</h2></div></div>
+  <div class="prose"><p>The loop is unchanged: windows of tokens, next-token cross-entropy, AdamW, cosine schedule. What differs is that SmolLM2-360M starts from four trillion tokens of prior training instead of noise, reads the corpus as BPE tokens instead of characters, and moves with a learning rate a hundred times smaller. Each document got a one-line header like <span class="mono">[FOMC statement | 2010-01-27]</span> so the result can be asked for a source and date.</p>
+  <p>On a 16 GB laptop the run was paced by memory, not compute: bfloat16 autocast, gradient checkpointing and a micro-batch of one were all necessary, and 320 steps over 1.3M tokens took 88 minutes.</p></div>
+  <div class="figure"><div class="chart" id="chartFt"></div><div class="legend"><span style="--c:var(--s1)">SmolLM2-360M while fine-tuning</span><span class="dash" style="--c:var(--s2)">phase 1 character model, final</span></div><div class="cap">The untouched base model already beats the character model on Fed text before seeing any of it: knowing English is worth more than knowing the Fed. Most of the fine-tuning gain arrives in the first 40 steps.</div></div>
+  <h3>Before and after, same prompt, same seed</h3>
+  <div class="two">
+    <div><div class="doc-head"><span>SmolLM2-360M, untouched</span></div><div class="doc prompt-mark" id="ftBefore"></div></div>
+    <div><div class="doc-head"><span>SmolLM2-360M, fine-tuned</span></div><div class="doc prompt-mark" id="ftAfter"></div></div>
+  </div>
+  <div class="prose" style="margin-top:20px"><p>The base model knows what the FOMC is and writes fluent English in the register of an internet comment thread. The fine-tuned model writes a statement: policy sentence, rationale, forward guidance, voting paragraph. It also reports a rate that rose to its lowest level, fills the roster with four real governors and four invented ones, and in the minutes sample quotes Mr. Trump at an FOMC meeting. Fluency went up by a lot. Truthfulness did not move, because nothing in the training signal refers to the world.</p></div>
+</section>
+
+<section id="limits">
+  <div class="section-head"><span class="num">06</span><div><div class="eyebrow">The limits</div><h2>Every line has the right shape. Almost nothing in it is true.</h2></div></div>
+  <div class="prose"><p>One generated minutes document from the phase 1 model, annotated. Every claim in the notes was checked against the corpus. Hover or tap a highlight.</p></div>
+  <div class="tagkeys" id="tagKeys"></div>
+  <div class="ann" id="annDoc"></div>
+  <div class="note" id="annNote"><b>note</b>Hover a highlighted span.</div>
+  <h3>Is any of it usable?</h3>
+  <div class="verdict">
+    <div><h3>Yes, for one thing</h3><ul><li>Generating Fed-register text on demand by source and date. The fine-tuned model returns a document of the right shape for a paragraph or two.</li><li>Teaching. The phase 1 run is a complete, inspectable instance of pretraining that finishes in half an hour.</li><li>Autocompleting boilerplate. Statements score 0.49 bits per character because they repeat themselves, and the model can finish the fixed sentences.</li></ul></div>
+    <div><h3>No, for anything else</h3><ul><li>Anything that depends on the content being true. No amount of further training on this corpus changes that; nothing in the signal refers to the world.</li><li>Answering questions. These are base models continuing text. A question gets a question-shaped continuation.</li><li>Being judged by the loss. 0.68 bits per character is respectable, and the output still shouldn't be used for anything but this page.</li></ul></div>
+  </div>
+  <div class="prose"><p>The next step toward a model that can say what the Fed <em>actually</em> said is retrieval: find the real paragraph in the cleaned corpus, put it in the prompt, and let a model summarise text it can see. That is a different project with a different failure mode.</p></div>
+  <h3>How far the same mechanism goes</h3>
+  <div class="prose"><p>Nothing here differs in kind from what trains a frontier model: the same objective, the same transformer block, the same optimiser and schedule. Compute is estimated as 6 &times; parameters &times; tokens where not published.</p></div>
+  <div class="tablewrap"><table id="scaleTable"></table></div>
+</section>
+
+<footer>
+  <div class="repo" id="repoList"></div>
+  <p style="margin-top:18px">Model code is Andrej Karpathy's <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> (MIT). Phase 2 base model is Hugging Face's <a href="https://huggingface.co/HuggingFaceTB/SmolLM2-360M">SmolLM2-360M</a> (Apache 2.0). Training text is publications of the Board of Governors of the Federal Reserve System, works of the United States government. This page is generated from the experiment logs by <code>site/build.py</code>; every number on it is in a CSV in <code>results/</code>.</p>
+</footer>
+</main>
+
+<script>
+const DATA = /*__DATA__*/;
+</script>
+<script>
+(() => {
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = tag.includes(":") ? document.createElementNS("http://www.w3.org/2000/svg", tag.split(":")[1]) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === "text") n.textContent = v; else if (k === "html") n.innerHTML = v; else n.setAttribute(k, v); }
+  for (const k of kids) n.append(k);
+  return n;
+};
+const fmt = (x, d = 3) => Number(x).toFixed(d);
+const tabular = (x) => Number(x).toLocaleString("en-US");
+const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- theme toggle ---------- */
+const root = document.documentElement;
+try { const t = localStorage.getItem("fedspeak-theme"); if (t) root.dataset.theme = t; } catch (e) {}
+$("#themeBtn").addEventListener("click", () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("fedspeak-theme", root.dataset.theme); } catch (e) {}
+});
+
+/* ---------- tiny scale helpers ---------- */
+const lin = (d0, d1, r0, r1) => (x) => r0 + (x - d0) / (d1 - d0) * (r1 - r0);
+const ticks = (lo, hi, n = 5) => {
+  const span = hi - lo, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= n + 1) || mag;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6)); return out;
+};
+
+/* ---------- line chart with hover ---------- */
+function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title, refLine, endLabels = true, fmtX = (v) => tabular(v), fmtY = (v) => fmt(v), h = 300 }) {
+  const W = 720, H = h, P = { l: 48, r: 96, t: title ? 30 : 22, b: 40 };
+  container.innerHTML = "";
+  const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title || yLabel });
+  const allX = series.flatMap(s => s.pts.map(p => p[0])), allY = series.flatMap(s => s.pts.map(p => p[1]));
+  const xd = xDomain || [Math.min(...allX), Math.max(...allX)];
+  const yd = yDomain || [Math.min(...allY, refLine ?? Infinity) * 0.95, Math.max(...allY, refLine ?? -Infinity) * 1.05];
+  const x = lin(xd[0], xd[1], P.l, W - P.r), y = lin(yd[0], yd[1], H - P.b, P.t);
+  const grid = el("svg:g", { class: "grid" }), axis = el("svg:g", { class: "axis" });
+  for (const v of ticks(yd[0], yd[1])) { grid.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) })); axis.append(el("svg:text", { x: P.l - 8, y: y(v) + 4, "text-anchor": "end", text: fmtY(v) })); }
+  for (const v of ticks(xd[0], xd[1], 6)) axis.append(el("svg:text", { x: x(v), y: H - P.b + 18, "text-anchor": "middle", text: fmtX(v) }));
+  axis.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: H - P.b, y2: H - P.b }));
+  axis.append(el("svg:text", { x: W - P.r, y: H - 6, "text-anchor": "end", class: "lbl", text: xLabel }));
+  axis.append(el("svg:text", { x: 4, y: P.t - 2, class: "lbl", text: yLabel }));
+  svg.append(grid, axis);
+  if (title) svg.append(el("svg:text", { x: P.l, y: 16, class: "title", text: title }));
+  if (refLine != null) { svg.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(refLine), y2: y(refLine), stroke: "var(--ink-3)", "stroke-dasharray": "4 4" })); }
+  const ends = [];
+  series.forEach((s, i) => {
+    const d = s.pts.map((p, j) => (j ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
+    svg.append(el("svg:path", { d, fill: "none", stroke: s.color || SERIES[i], "stroke-width": s.width || 2, "stroke-dasharray": s.dash || "none", opacity: s.opacity ?? 1, "stroke-linejoin": "round" }));
+    if (s.label !== undefined && endLabels) { const last = s.pts[s.pts.length - 1]; ends.push({ x: x(last[0]), y: y(last[1]), text: `${s.label} ${fmtY(last[1])}`, color: s.color || SERIES[i] }); }
+  });
+  ends.sort((a, b) => a.y - b.y); for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  for (const e of ends) { svg.append(el("svg:circle", { cx: e.x, cy: e.y, r: 3.5, fill: e.color, stroke: "var(--paper)", "stroke-width": 1.5 })); svg.append(el("svg:text", { x: e.x + 8, y: e.y + 4, class: "endlbl", text: e.text })); }
+  const xh = el("svg:line", { class: "xh", y1: P.t, y2: H - P.b, x1: -10, x2: -10 });
+  const dots = series.map((s, i) => el("svg:circle", { r: 4, fill: s.color || SERIES[i], stroke: "var(--paper)", "stroke-width": 1.5, opacity: 0 }));
+  svg.append(xh, ...dots);
+  const tip = el("div", { class: "tip" });
+  container.append(svg, tip);
+  const hover = el("svg:rect", { x: P.l, y: P.t, width: W - P.l - P.r, height: H - P.t - P.b, fill: "transparent" });
+  svg.append(hover);
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
+    const xv = xd[0] + (px - P.l) / (W - P.l - P.r) * (xd[1] - xd[0]);
+    const lines = []; let sx = null;
+    series.forEach((s, i) => { if (s.label === undefined) return; let best = s.pts[0]; for (const p of s.pts) if (Math.abs(p[0] - xv) < Math.abs(best[0] - xv)) best = p; dots[i].setAttribute("cx", x(best[0])); dots[i].setAttribute("cy", y(best[1])); dots[i].setAttribute("opacity", 1); lines.push(`${s.label}: ${fmtY(best[1])}`); sx = best[0]; });
+    if (sx == null) return;
+    xh.setAttribute("x1", x(sx)); xh.setAttribute("x2", x(sx));
+    tip.innerHTML = `<b>${xLabel} ${fmtX(sx)}</b><br>` + lines.join("<br>");
+    tip.style.left = (x(sx) / W * 100) + "%"; tip.style.top = (P.t / H * 100) + "%"; tip.classList.add("on");
+  };
+  const leave = () => { tip.classList.remove("on"); dots.forEach(d => d.setAttribute("opacity", 0)); xh.setAttribute("x1", -10); xh.setAttribute("x2", -10); };
+  hover.addEventListener("mousemove", move); hover.addEventListener("touchmove", (e) => move(e.touches[0]), { passive: true }); hover.addEventListener("mouseleave", leave);
+}
+
+/* ---------- bar chart (grouped) ---------- */
+function barChart(container, { groups, seriesNames, colors, yLabel, title, fmtY = (v) => fmt(v), h = 260, yMax }) {
+  const W = 720, H = h, P = { l: 48, r: 12, t: title ? 30 : 22, b: 40 };
+  container.innerHTML = "";
+  const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title || yLabel });
+  const ymax = yMax || Math.max(...groups.flatMap(g => g.values)) * 1.18;
+  const y = lin(0, ymax, H - P.b, P.t);
+  const grid = el("svg:g", { class: "grid" }), axis = el("svg:g", { class: "axis" });
+  for (const v of ticks(0, ymax)) { grid.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) })); axis.append(el("svg:text", { x: P.l - 8, y: y(v) + 4, "text-anchor": "end", text: fmtY(v) })); }
+  axis.append(el("svg:text", { x: 4, y: P.t - 2, class: "lbl", text: yLabel }));
+  if (title) svg.append(el("svg:text", { x: P.l, y: 16, class: "title", text: title }));
+  svg.append(grid, axis);
+  const gw = (W - P.l - P.r) / groups.length, n = seriesNames.length, bw = Math.min(46, gw * 0.7 / n);
+  const tip = el("div", { class: "tip" });
+  groups.forEach((g, gi) => {
+    const cx = P.l + gw * (gi + 0.5);
+    g.values.forEach((v, si) => {
+      const bx = cx - (n * bw) / 2 + si * bw;
+      const rect = el("svg:rect", { x: bx + 1, y: y(v), width: bw - 2, height: H - P.b - y(v), fill: colors[si], rx: 3, stroke: "var(--paper)", "stroke-width": 1 });
+      if (g.best === si || (n === 1 && g.best)) rect.setAttribute("opacity", 1);
+      rect.addEventListener("mousemove", (ev) => { const r = svg.getBoundingClientRect(); tip.innerHTML = `<b>${g.label}</b>${n > 1 ? "<br>" + seriesNames[si] : ""}<br>${fmtY(v)}${g.extra ? "<br>" + g.extra[si] : ""}`; tip.style.left = ((bx + bw / 2) / W * 100) + "%"; tip.style.top = (y(v) / H * 100) + "%"; tip.classList.add("on"); });
+      rect.addEventListener("mouseleave", () => tip.classList.remove("on"));
+      svg.append(rect);
+      if (n === 1) svg.append(el("svg:text", { x: bx + bw / 2, y: y(v) - 6, "text-anchor": "middle", class: "endlbl", text: fmtY(v) }));
+    });
+    svg.append(el("svg:text", { x: cx, y: H - P.b + 18, "text-anchor": "middle", class: "lbl", text: g.label, style: g.baseline ? "font-weight:600" : "" }));
+  });
+  container.append(svg, tip);
+}
+
+/* ---------- stacked bars (docs per year) ---------- */
+function stackedYears(container, rows) {
+  const keys = [["statements_docs", "statements", "var(--s1)"], ["minutes_docs", "minutes", "var(--s2)"], ["beigebook_docs", "Beige Books", "var(--s3)"]];
+  const W = 720, H = 260, P = { l: 40, r: 12, t: 22, b: 36 };
+  container.innerHTML = "";
+  const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Documents per year by source" });
+  const ymax = Math.max(...rows.map(r => keys.reduce((a, k) => a + r[k[0]], 0))) * 1.1;
+  const y = lin(0, ymax, H - P.b, P.t), gw = (W - P.l - P.r) / rows.length;
+  const grid = el("svg:g", { class: "grid" }), axis = el("svg:g", { class: "axis" });
+  for (const v of ticks(0, ymax, 4)) { grid.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v) })); axis.append(el("svg:text", { x: P.l - 8, y: y(v) + 4, "text-anchor": "end", text: v })); }
+  axis.append(el("svg:text", { x: 4, y: P.t - 2, class: "lbl", text: "documents" }));
+  svg.append(grid, axis);
+  const tip = el("div", { class: "tip" });
+  rows.forEach((r, i) => {
+    let acc = 0; const x0 = P.l + gw * i + 1.5;
+    keys.forEach(([k, name, color]) => {
+      const v = r[k]; if (!v) return;
+      const rect = el("svg:rect", { x: x0, y: y(acc + v), width: gw - 3, height: y(acc) - y(acc + v), fill: color, stroke: "var(--paper)", "stroke-width": 1 });
+      rect.addEventListener("mousemove", () => { tip.innerHTML = `<b>${r.year}</b><br>` + keys.map(([kk, nn]) => `${nn}: ${r[kk]}`).join("<br>") + `<br>${tabular(keys.reduce((a, kk) => a + r[kk[0].replace("_docs", "_chars")], 0))} chars`; tip.style.left = ((x0 + gw / 2) / W * 100) + "%"; tip.style.top = (y(acc + v) / H * 100) + "%"; tip.classList.add("on"); });
+      rect.addEventListener("mouseleave", () => tip.classList.remove("on"));
+      svg.append(rect); acc += v;
+    });
+    if (r.year % 4 === 2) svg.append(el("svg:text", { x: x0 + gw / 2, y: H - P.b + 16, "text-anchor": "middle", class: "lbl", text: r.year }));
+  });
+  container.append(svg, tip);
+  $("#legendYears").innerHTML = keys.map(([, n, c]) => `<span style="--c:${c}">${n}</span>`).join("");
+}
+
+/* ---------- render: hero ---------- */
+const C = DATA.corpus, main = DATA.main_run;
+const totChars = C.shares.reduce((a, s) => a + s.chars, 0), totDocs = C.shares.reduce((a, s) => a + s.docs, 0);
+$("#heroStats").append(...[
+  [tabular(totDocs), "documents, 1994 to 2026"], [(totChars / 1e6).toFixed(1) + "M", "characters, 86 distinct"],
+  ["10.65M", "parameters, from random init"], [fmt(main.eval[main.eval.length - 1].val_loss), "final validation loss, nats/char"]
+].map(([n, l]) => el("div", { class: "stat" }, el("div", { class: "n", text: n }), el("div", { class: "l", text: l }))));
+
+/* ---------- corpus ---------- */
+stackedYears($("#chartYears"), C.per_year);
+const NAMES = { statements: "FOMC statements", minutes: "FOMC minutes", beigebook: "Beige Books" };
+$("#shareTiles").append(...C.shares.map(s => el("div", { class: "stat" }, el("div", { class: "n", text: (s.share * 100).toFixed(0) + "%" }), el("div", { class: "l", text: `${NAMES[s.source]}: ${s.docs} documents, ${(s.chars / 1e6).toFixed(1)}M characters` }))));
+$("#rawEx").textContent = C.cleaning_example.raw; $("#cleanEx").textContent = C.cleaning_example.clean;
+
+/* ---------- tokens ---------- */
+const stoi = {}; C.vocab.forEach(v => { stoi[v.char] = v.id; });
+const show = (ch) => ch === "\n" ? "\\n" : ch === " " ? "␣" : ch;
+$("#vocabStrip").append(...C.vocab.map(v => el("span", { text: show(v.char), title: `id ${v.id}, ${tabular(v.count)} occurrences` })));
+const renderTokens = () => {
+  const t = $("#tokIn").value.slice(0, 160); const out = $("#tokOut"); out.innerHTML = "";
+  for (const ch of t) { const id = stoi[ch]; out.append(el("span", { class: "tok" + (id === undefined ? " unk" : ""), title: id === undefined ? "not in vocabulary: dropped" : `id ${id}` }, el("b", { text: show(ch) }), el("span", { text: id === undefined ? "?" : id }))); }
+};
+$("#tokIn").addEventListener("input", renderTokens); renderTokens();
+
+/* ---------- main run ---------- */
+lineChart($("#chartMain"), {
+  series: [
+    { pts: main.step.map(r => [r.iter, r.train_loss]), color: "var(--s1)", width: 1, opacity: 0.3 },
+    { pts: main.eval.map(r => [r.iter, r.train_loss]), label: "train", color: "var(--s1)" },
+    { pts: main.eval.map(r => [r.iter, r.val_loss]), label: "val", color: "var(--s2)" },
+  ], xLabel: "iteration", yLabel: "loss (nats / char)", yDomain: [0, 5], refLine: 4.454, fmtY: (v) => fmt(v, 2), h: 320,
+});
+
+/* ---------- stages ---------- */
+const stages = DATA.stages;
+const promptMark = (node, text, prompt) => { node.innerHTML = ""; if (prompt && text.startsWith(prompt)) { node.append(el("span", { class: "p", text: prompt }), document.createTextNode(text.slice(prompt.length))); } else node.textContent = text; };
+const renderStage = () => { const s = stages[+$("#stageRange").value]; $("#stageIter").textContent = `iteration ${s.iter}`; $("#stageLoss").textContent = fmt(s.val_loss); promptMark($("#stageDoc"), s.text, "The Committee decided to"); };
+$("#stageRange").max = stages.length - 1; $("#stageRange").addEventListener("input", renderStage); renderStage();
+
+/* ---------- temperature ---------- */
+const temps = DATA.temperature;
+temps.forEach((t, i) => { const b = el("button", { type: "button", "aria-pressed": i === 2 ? "true" : "false", text: "T = " + t.t.toFixed(1) }); b.addEventListener("click", () => { $("#tempSeg").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false")); b.setAttribute("aria-pressed", "true"); $("#tempDoc").textContent = t.text; }); $("#tempSeg").append(b); });
+$("#tempDoc").textContent = temps[2].text;
+
+/* ---------- playground ---------- */
+const PG = DATA.playground;
+if (PG) {
+  const MODELS = [["char", "Character model", "10.65M, from scratch"], ["base", "SmolLM2-360M", "untouched"], ["finetuned", "SmolLM2-360M", "fine-tuned on Fed text"]];
+  let model = "char", prompt = PG.prompts[0].id, timer = null;
+  const settings = (m) => Object.entries(PG.settings[m]).map(([k, v]) => `${k.replace("max_new_tokens", "new tokens").replace("_", " ")} ${v}`).join(" · ");
+  const render = () => {
+    const p = PG.prompts.find(x => x.id === prompt), text = PG.models[model][prompt];
+    $("#pgSettings").textContent = settings(model); $("#pgTiming").textContent = "seed 1337, saved output";
+    const doc = $("#pgDoc"); clearTimeout(timer);
+    const pfx = p.text; const body = text.startsWith(pfx) ? text.slice(pfx.length) : text;
+    doc.innerHTML = ""; doc.append(el("span", { class: "p", text: text.startsWith(pfx) ? pfx : "" }));
+    const rest = document.createTextNode(""); doc.append(rest);
+    if (reduced) { rest.textContent = body; return; }
+    let i = 0; const step = () => { i = Math.min(body.length, i + 6); rest.textContent = body.slice(0, i); if (i < body.length) timer = setTimeout(step, 8); }; step();
+  };
+  MODELS.forEach(([id, name, sub], i) => { const b = el("button", { type: "button", role: "tab", "aria-selected": i === 0 ? "true" : "false", html: `${name}<small>${sub}</small>` }); b.addEventListener("click", () => { model = id; $("#pgTabs").querySelectorAll("button").forEach(x => x.setAttribute("aria-selected", "false")); b.setAttribute("aria-selected", "true"); render(); }); $("#pgTabs").append(b); });
+  PG.prompts.forEach((p, i) => { const b = el("button", { type: "button", "aria-pressed": i === 0 ? "true" : "false", html: `${p.text.replace(/</g, "&lt;")}<small>${p.label}</small>` }); b.addEventListener("click", () => { prompt = p.id; $("#pgChips").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false")); b.setAttribute("aria-pressed", "true"); render(); }); $("#pgChips").append(b); });
+  render();
+  promptMark($("#ftBefore"), PG.models.base.hdr_statement, "[FOMC statement | 2026-10-28]");
+  promptMark($("#ftAfter"), PG.models.finetuned.hdr_statement, "[FOMC statement | 2026-10-28]");
+} else { $("#pgDoc").textContent = "Playground outputs not generated yet: run site/generate_playground.py then site/build.py."; }
+
+/* ---------- ablations ---------- */
+const A = DATA.ablations;
+barChart($("#chartAblSummary"), {
+  groups: [...A.context.runs.map(r => ({ label: "ctx " + r.label, values: [r.final], extra: [r.minutes + " min"], baseline: r.baseline })),
+           ...A.size.runs.filter(r => !r.baseline).map(r => ({ label: r.label, values: [r.final], extra: [r.minutes + " min"] })),
+           ...A.lr.runs.filter(r => !r.baseline).map(r => ({ label: "lr " + r.label, values: [r.final], extra: [r.minutes + " min"] }))],
+  seriesNames: ["val loss"], colors: ["var(--s1)"], yLabel: "val loss @ 1000 iterations (nats / char)", title: "Final validation loss of every ablation run (ctx 256 is the shared baseline)", h: 280,
+});
+const ablLine = (id, ax, unit, hh = 260) => lineChart($(id), { series: ax.runs.map((r, i) => ({ pts: r.eval.map(e => [e.iter, e.val_loss]), label: r.label, color: SERIES[i] })), xLabel: "iter", yLabel: "val loss", yDomain: [0.6, 2.2], xDomain: [0, 1000], title: ax.title + (unit ? ` (${unit})` : ""), fmtY: (v) => fmt(v, 2), h: hh });
+ablLine("#chartAblContext", A.context, "characters", 300); ablLine("#chartAblSize", A.size, "parameters"); ablLine("#chartAblLr", A.lr, "peak");
+
+/* ---------- per-source ---------- */
+const S = DATA.by_source;
+barChart($("#chartSource"), {
+  groups: ["statements", "minutes", "beigebook"].map(s => ({ label: NAMES[s], values: [S.char[s], S.base[s], S.finetuned[s]] })),
+  seriesNames: ["char model", "SmolLM2 base", "SmolLM2 fine-tuned"], colors: ["var(--s2)", "var(--s3)", "var(--s1)"], yLabel: "bits / char (lower = easier)", fmtY: (v) => fmt(v, 2), yMax: 1.25,
+});
+
+/* ---------- fine-tune ---------- */
+const F = DATA.finetune;
+lineChart($("#chartFt"), {
+  series: [{ pts: F.eval.map(r => [r.tokens / 1e6, r.bpc]), label: "fine-tuning", color: "var(--s1)" },
+           { pts: [[0, F.char_model_bpc], [F.eval[F.eval.length - 1].tokens / 1e6, F.char_model_bpc]], label: "char model", color: "var(--s2)", dash: "5 4" }],
+  xLabel: "Fed tokens seen (M)", yLabel: "val loss (bits / char)", yDomain: [0.6, 1.1], fmtX: (v) => fmt(v, 2), fmtY: (v) => fmt(v, 2), h: 300,
+});
+
+/* ---------- annotated ---------- */
+const TAGS = { form: "form", fabricated: "fabricated", drift: "drift", bug: "bug" };
+const ann = $("#annDoc"), note = $("#annNote");
+DATA.annotated.forEach(([text, tag, msg]) => { const s = el("span", { "data-tag": tag, tabindex: "0", text }); const showNote = () => { note.innerHTML = ""; note.append(el("b", { text: TAGS[tag] }), document.createTextNode(msg)); }; s.addEventListener("mouseenter", showNote); s.addEventListener("focus", showNote); s.addEventListener("click", showNote); ann.append(s); });
+Object.keys(TAGS).forEach(t => { const b = el("button", { type: "button", "data-tag": t, "aria-pressed": "true", text: t }); b.addEventListener("click", () => { const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", on); ann.querySelectorAll(`span[data-tag="${t}"]`).forEach(s => s.classList.toggle("off", !on)); }); $("#tagKeys").append(b); });
+
+/* ---------- scale table ---------- */
+const st = $("#scaleTable");
+st.append(el("thead", {}, el("tr", {}, ...["Model", "Params", "Training tokens", "Compute (FLOPs)", "vs FedSpeak"].map((h, i) => el("th", { class: i ? "num" : "", text: h })))));
+const sci = (s) => { const n = Number(s); if (!isFinite(n)) return s; if (n < 1e4) return n.toFixed(n < 10 ? 1 : 0); const e = Math.floor(Math.log10(n)); return (n / 10 ** e).toFixed(1) + "e" + e; };
+st.append(el("tbody", {}, ...DATA.scale.map(r => el("tr", {}, el("td", { text: r.model }), el("td", { class: "num", text: sci(r.params) }), el("td", { class: "num", text: sci(r.training_tokens) }), el("td", { class: "num", text: sci(r.training_flops) }), el("td", { class: "num", text: sci(r.flops_vs_fedspeak) + "×" })))));
+
+/* ---------- footer ---------- */
+$("#repoList").append(...[["scrape_fed.py", "collect and clean the corpus"], ["prepare.py", "characters to integers, chronological split"], ["train.py", "the pretraining loop"], ["sample.py", "generate from a checkpoint"], ["run_experiments.sh", "the ablation sweep"], ["eval_by_source.py", "per-source loss"], ["finetune/", "phase 2: SmolLM2 fine-tune"], ["results/", "every log, sample and figure"]].map(([f, d]) => el("div", {}, el("code", { text: f }), el("span", { class: "muted", text: "  " + d }))));
+})();
+</script>
