@@ -132,7 +132,8 @@ considered. That sets the scale for reading the rest of this document:
 - Anything reported here to the fourth decimal place is spurious precision.
 
 A three-seed study of the 64, 128 and 256 runs was started and did not finish;
-see the caveats below.
+`./finish_seed_study.sh` completes it in about 45 minutes on a healthy
+machine.
 
 The timings in the table above are from this clean second pass. The first
 pass's numbers were unusable because runs overlapped with other jobs: the

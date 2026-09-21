@@ -13,6 +13,10 @@ SMALL="--n_layer 4 --n_head 4 --n_embd 256"
 
 run() {  # run <name> <extra args...>
   name=$1; shift
+  # Let Metal's compiler service settle between processes. Launching many
+  # short-lived GPU processes back to back can exhaust it, which aborts every
+  # later run instantly with "Unable to reach MTLCompilerService".
+  sleep 20
   echo "=== START $name: $*   ($(date +%H:%M:%S))"
   python3 -u train.py $COMMON "$@" --out_dir "runs/$name" > "runs/$name.log" 2>&1
   grep -E "^--- eval @ 1000|^done" "runs/$name.log"
