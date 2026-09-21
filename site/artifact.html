@@ -626,7 +626,7 @@ if (SEEDED.length === 3) {
     fmtX: (v) => String(Math.round(2 ** v)), fmtY: (v) => fmt(v, 2), h: 280,
   });
   const sp = (r) => fmt(r.range[1] - r.range[0], 3);
-  $("#seedCap").textContent = `Each whisker spans every run at that setting: three seeds plus a same-seed re-run. None overlap, so both minima hold: ${SEEDED[bo].ctx} under own-window scoring, ${SEEDED[bf].ctx} under fair scoring. The whiskers also widen with chunk size, ${sp(SEEDED[0])} at ${SEEDED[0].ctx} to ${sp(SEEDED[2])} at ${SEEDED[2].ctx} for the blue line, because fewer sequences per gradient make training noisier and the result more dependent on the draw.`;
+  $("#seedCap").textContent = `Each whisker spans every run at that setting: three seeds plus a same-seed re-run. None overlap, so both minima hold: ${SEEDED[bo].ctx} under own-window scoring, ${SEEDED[bf].ctx} under fair scoring. The widest whiskers are at 256, consistent with fewer sequences per gradient making training noisier, though three seeds is too few to measure spread precisely.`;
   $("#seedFig").hidden = false;
 }
 const ablLine = (id, ax, unit, hh = 260, ww = 720) => lineChart($(id), { series: ax.runs.map((r, i) => ({ pts: r.eval.map(e => [e.iter, e.val_loss]), label: r.label, color: SERIES[i] })), xLabel: "iter", yLabel: "val loss", yDomain: [0.6, 2.2], xDomain: [0, 1000], title: ax.title + (unit ? ` (${unit})` : ""), fmtY: (v) => fmt(v, 2), h: hh, w: ww });

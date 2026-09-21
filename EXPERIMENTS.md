@@ -152,11 +152,13 @@ either neighbour.** The ranges do not overlap, so the minimum is established,
 not suggested. The one thing a single seed could not settle, whether 64 or 256
 is second, it still cannot: they swap order between seeds.
 
-A second result falls out for free. **The seed-to-seed spread grows with chunk
-size**: 0.005 at 64, 0.005 at 128 and 0.013 at 256. Longer chunks mean fewer
-sequences in each gradient, so each step is a noisier estimate and the final
-answer depends more on the luck of the draw. That is independent evidence for
-the explanation given above for the right-hand side of the curve.
+The seed-to-seed spread is also worth a look: 0.005 at 64, 0.005 at 128 and
+0.013 at 256, and under fair scoring (below) it rises steadily, 0.008, 0.013,
+0.023. That is what the gradient-noise explanation of the right-hand side
+predicts: longer chunks mean fewer sequences per gradient, so each step is a
+noisier estimate and the result depends more on the draw. It is consistent with
+that explanation rather than proof of it. Three seeds is a thin basis for a
+claim about spread, and on the own-window numbers the rise only appears at 256.
 
 The timings in the table above are from this clean second pass. The first
 pass's numbers were unusable because runs overlapped with other jobs: the
@@ -210,8 +212,8 @@ The same three seeds, scored fairly:
 
 64 is the fair minimum on every seed, again with no overlap. Both conclusions
 hold: scored the way a training loop reports it the best chunk is 128, scored
-on identical targets it is 64, and neither answer is noise. The spread grows
-with chunk size here too, from 0.008 to 0.023.
+on identical targets it is 64, and neither answer is noise. The spread rises
+with chunk size here, from 0.008 at 64 to 0.023 at 256.008 to 0.023.
 
 The absolute values in the two columns come from different slices of the
 validation text and should not be subtracted from each other. The comparison
