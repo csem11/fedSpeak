@@ -40,13 +40,13 @@ same compute", and it is also the source of the most interesting result.
 
 | Axis | Run | Change from baseline | Val loss @ 1000 | Wall time |
 |---|---|---|---|---|
-| context | `ctx0016` | 16 chars of context, 1024 seqs/step | 1.090 | 3.9 min |
-| context | `ctx0064` | 64 chars, 256 seqs/step | **0.901** | 4.0 min |
-| context | `ctx0256` | baseline: 256 chars, 64 seqs/step | 0.922 | 5.8 min |
-| context | `ctx1024` | 1024 chars, 16 seqs/step | 1.276 | 10.0 min |
-| size | `size0.4M` | 2 layers, 2 heads, 128-wide (0.40M) | 1.426 | 1.2 min |
+| context | `ctx0016` | 16 chars of context, 1024 seqs/step | 1.090 | 4.2 min |
+| context | `ctx0064` | 64 chars, 256 seqs/step | **0.901** | 4.3 min |
+| context | `ctx0256` | baseline: 256 chars, 64 seqs/step | 0.922 | 5.2 min |
+| context | `ctx1024` | 1024 chars, 16 seqs/step | 1.276 | 10.9 min |
+| size | `size0.4M` | 2 layers, 2 heads, 128-wide (0.40M) | 1.426 | 1.3 min |
 | size | `ctx0256` | baseline: 3.17M | 0.922 | 5.8 min |
-| size | `size10.6M` | 6 layers, 6 heads, 384-wide (10.65M) | 0.798 | 14.1 min |
+| size | `size10.6M` | 6 layers, 6 heads, 384-wide (10.65M) | 0.798 | 14.7 min |
 | learning rate | `lr3e-4` | peak 3e-4 | 1.211 | 5.4 min |
 | learning rate | `ctx0256` | baseline: peak 1e-3 | 0.922 | 5.8 min |
 | learning rate | `lr3e-3` | peak 3e-3 | **0.877** | 6.2 min |
@@ -101,10 +101,43 @@ with "long context helps the model predict". A model trained at 16 characters
 is also only ever tested with 16 characters of history. The next section
 separates the two.
 
-Wall-clock times are not comparable across these runs. The original four were
-measured on an idle machine in one session; the three fill-in runs were done
-later, and the 512-character run overlapped with another job. Only the losses,
-which are deterministic given the seed, can be compared.
+### How much of this is noise?
+
+The whole sweep was run a second time at the same seed on an idle machine, both
+to get honest timings and to see how repeatable it is. Nine runs completed
+before the machine's Metal compiler service failed and took the rest with it.
+
+| Run | First pass | Second pass | Difference |
+|---|---|---|---|
+| ctx 16 | 1.0904 | 1.0911 | 0.0007 |
+| ctx 32 | 0.9749 | 0.9740 | 0.0009 |
+| ctx 64 | 0.9013 | 0.9040 | 0.0027 |
+| ctx 128 | 0.8825 | 0.8823 | 0.0002 |
+| ctx 256 | 0.9220 | 0.9214 | 0.0006 |
+| ctx 512 | 1.0128 | 1.0074 | 0.0054 |
+| ctx 1024 | 1.2758 | 1.2744 | 0.0014 |
+| 0.40M | 1.4256 | 1.4290 | 0.0034 |
+| 10.65M | 0.7979 | 0.7965 | 0.0014 |
+
+**Same seed, same data, same code, and the answers still move by up to 0.005.**
+GPU kernels are not bit-for-bit deterministic, so every number here carries a
+floor of roughly half a hundredth of a nat before seed variation is even
+considered. That sets the scale for reading the rest of this document:
+
+- The chunk-size minimum at 128 beats its neighbours by 0.018 to 0.039, about
+  four to eight times that floor, so it survives. It is a real effect measured
+  at a coarse resolution, not a precise optimum.
+- The learning-rate gain of 0.045 and the size gains of 0.12 and 0.50 are far
+  above the floor.
+- Anything reported here to the fourth decimal place is spurious precision.
+
+A three-seed study of the 64, 128 and 256 runs was started and did not finish;
+see the caveats below.
+
+The timings in the table above are from this clean second pass. The first
+pass's numbers were unusable because runs overlapped with other jobs: the
+512-character run reported 41.7 minutes then and takes 6.8 on an idle
+machine.
 
 ## Scored fairly, the answer moves
 
@@ -313,9 +346,13 @@ them, just at longer range and with better spelling.
 
 ## Caveats
 
-- **One seed per run.** With 20 evaluation batches, the noise on each val
-  loss is roughly ±0.01. Differences of 0.02 (context 64 vs 256) are
-  suggestive, not established. Differences of 0.2 are real.
+- **One seed per run, and the re-run above measures the floor.** Repeating the
+  sweep at the same seed moved answers by up to 0.005, so differences of 0.02
+  are suggestive rather than established and differences of 0.2 are certain. A
+  three-seed comparison of chunk sizes 64, 128 and 256 was launched to settle
+  the middle ground and could not complete: the machine's Metal compiler
+  service failed partway through the batch, aborting the remaining eight runs
+  instantly. That study is still outstanding.
 - **1000 iterations is a short budget.** Every ranking here is "at this
   budget". Learning rate and context length in particular are known to
   change their optimum with training length.
