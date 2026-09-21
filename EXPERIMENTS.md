@@ -331,7 +331,14 @@ them, just at longer range and with better spelling.
 ## Reproduce
 
 ```
-./run_experiments.sh          # ~45 min on an M4; writes runs/<name>/eval_log.csv
-python eval_by_source.py      # ~1 min; writes results/loss_by_source.csv
-python plot_results.py        # writes results/figures/*.png
+./run_experiments.sh             # eleven runs, ~75 min on an idle M4
+python3 eval_by_source.py        # per-source loss of the headline model
+python3 eval_common_context.py   # scores every chunk size on identical targets
+python3 plot_results.py          # writes results/figures/*.png
 ```
+
+Each run writes `runs/<name>/eval_log.csv`; copy those into
+`results/experiments/<name>/` for `plot_results.py` and the web page to pick
+them up. Losses are deterministic given the seed, so they reproduce exactly.
+Wall-clock times do not: run the sweep on an otherwise idle machine if you want
+the timings to mean anything.

@@ -342,9 +342,33 @@ different failure mode, and it would be the third phase.
 
 ```
 python3 -m pip install -r requirements-finetune.txt
-python3 finetune/prepare_ft.py                       # tokenise with headers -> data/ft/
-python3 finetune/finetune.py                         # ~90 min on a 16 GB M4
+```
+
+SmolLM2-360M, full fine-tune:
+
+```
+python3 finetune/prepare_ft.py                        # tokenise with headers -> data/ft/
+python3 finetune/finetune.py                          # ~90 min on a 16 GB M4
 python3 finetune/sample_ft.py --prompt "[FOMC statement | 2026-10-28]"
 python3 finetune/eval_ft_by_source.py --tag finetuned
 python3 finetune/eval_ft_by_source.py --model HuggingFaceTB/SmolLM2-360M --tag base
+```
+
+Qwen3-1.7B, LoRA. The `--val_start` pin is what keeps the two runs comparable:
+without it a different tokenizer moves the train/validation boundary onto a
+different document.
+
+```
+python3 finetune/prepare_ft.py --model Qwen/Qwen3-1.7B-Base \
+        --out_dir data/ft_qwen3-1.7b --val_start 20230920
+python3 finetune/finetune.py --data_dir data/ft_qwen3-1.7b --lora_r 16 \
+        --lr 2e-4 --min_lr 2e-5 --out_dir finetune/out_qwen3-1.7b   # ~2 h idle, longer under memory pressure
+python3 finetune/sample_ft.py --model finetune/out_qwen3-1.7b/model \
+        --prompt "[FOMC statement | 2026-10-28]"
+python3 finetune/eval_ft_by_source.py --model finetune/out_qwen3-1.7b/model \
+        --tag qwen_finetuned --data_dir data/ft_qwen3-1.7b \
+        --out results/finetune_qwen/loss_by_source.csv
+python3 finetune/eval_ft_by_source.py --model Qwen/Qwen3-1.7B-Base \
+        --tag qwen_base --data_dir data/ft_qwen3-1.7b \
+        --out results/finetune_qwen/loss_by_source.csv
 ```
