@@ -14,6 +14,14 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 HERE = Path(__file__).resolve().parent.parent
+
+
+def load_model(name, dtype, device):
+    """Load a full model, or a LoRA adapter directory (which records its base model)."""
+    if (Path(name) / "adapter_config.json").exists():
+        from peft import AutoPeftModelForCausalLM
+        return AutoPeftModelForCausalLM.from_pretrained(name, dtype=dtype).to(device).eval()
+    return AutoModelForCausalLM.from_pretrained(name, dtype=dtype).to(device).eval()
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("--model", default="finetune/out/model", help="local directory or Hub id")
 ap.add_argument("--prompt", default="[FOMC statement | 2026-10-28]\n")
@@ -30,7 +38,7 @@ args = ap.parse_args()
 path = HERE / args.model
 name = str(path) if path.exists() else args.model
 tok = AutoTokenizer.from_pretrained(name)
-model = AutoModelForCausalLM.from_pretrained(name, dtype=torch.bfloat16).to(args.device).eval()
+model = load_model(name, torch.bfloat16, args.device)
 torch.manual_seed(args.seed)
 prompt = args.prompt if args.prompt.endswith("\n") or not args.prompt.startswith("[") else args.prompt + "\n"
 ids = tok(prompt, return_tensors="pt").input_ids.to(args.device)

@@ -30,10 +30,13 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 HERE = Path(__file__).resolve().parent.parent
-DATA = HERE / "data" / "ft"
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-ap.add_argument("--model", default=None, help="default: the model data/ft was tokenised with")
+ap.add_argument("--model", default=None, help="default: the model the data directory was tokenised with")
+ap.add_argument("--data_dir", default="data/ft")
+ap.add_argument("--lora_r", type=int, default=0,
+                help="0 = full fine-tune (every weight trains). >0 = LoRA: freeze the model, "
+                     "train rank-r adapters. Needed once full fine-tuning no longer fits in memory.")
 ap.add_argument("--out_dir", default="finetune/out")
 ap.add_argument("--max_steps", type=int, default=320)
 ap.add_argument("--accum", type=int, default=4, help="micro-batches per optimiser step")
@@ -49,15 +52,17 @@ ap.add_argument("--seed", type=int, default=1337)
 ap.add_argument("--device", default="mps")
 args = ap.parse_args()
 
+DATA = HERE / args.data_dir
 meta = json.loads((DATA / "meta.json").read_text())
+TOKEN_DTYPE = np.dtype(meta.get("token_dtype", "uint16"))
 model_name = args.model or meta["model"]
 device = torch.device(args.device)
 torch.manual_seed(args.seed)
 out_dir = HERE / args.out_dir
 out_dir.mkdir(parents=True, exist_ok=True)
 
-train_data = np.memmap(DATA / "train.bin", dtype=np.uint16, mode="r")
-val_data = np.memmap(DATA / "val.bin", dtype=np.uint16, mode="r")
+train_data = np.memmap(DATA / "train.bin", dtype=TOKEN_DTYPE, mode="r")
+val_data = np.memmap(DATA / "val.bin", dtype=TOKEN_DTYPE, mode="r")
 
 
 def window(data, start):
@@ -76,16 +81,32 @@ eval_starts = {split: np.linspace(0, len(d) - args.seq_len - 1, args.eval_window
                for split, d in (("train", train_data), ("val", val_data))}
 
 tok = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name, dtype=torch.float32).to(device)
+if args.lora_r > 0:
+    # LoRA: the pretrained weights stay frozen (so they can sit in bfloat16,
+    # half the memory), and each attention and MLP projection W gets a trainable
+    # low-rank update B @ A with rank r. Only A and B receive gradients and
+    # optimizer state, which is what makes a 1.7B model trainable in 16 GB.
+    from peft import LoraConfig, get_peft_model
+    model = AutoModelForCausalLM.from_pretrained(model_name, dtype=torch.bfloat16)
+    model.gradient_checkpointing_enable()
+    model.enable_input_require_grads()        # checkpointing needs a grad path through frozen embeddings
+    model = get_peft_model(model, LoraConfig(
+        r=args.lora_r, lora_alpha=2 * args.lora_r, lora_dropout=0.05, task_type="CAUSAL_LM",
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]))
+    model = model.to(device)
+else:
+    model = AutoModelForCausalLM.from_pretrained(model_name, dtype=torch.float32).to(device)
+    model.gradient_checkpointing_enable()
 model.config.use_cache = False
-model.gradient_checkpointing_enable()
 n_params = sum(p.numel() for p in model.parameters())
+n_train = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"trainable parameters: {n_train / 1e6:.1f}M of {n_params / 1e6:.0f}M ({100 * n_train / n_params:.2f}%)", flush=True)
 print(f"{model_name}: {n_params / 1e6:.0f}M params on {device}; {args.accum * args.seq_len:,} tokens/step; "
       f"{args.max_steps} steps = {args.max_steps * args.accum * args.seq_len / 1e6:.2f}M tokens "
       f"({100 * args.max_steps * args.accum * args.seq_len / len(train_data):.0f}% of the training split)", flush=True)
 
-decay = [p for n, p in model.named_parameters() if p.dim() >= 2]
-no_decay = [p for n, p in model.named_parameters() if p.dim() < 2]
+decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() >= 2]
+no_decay = [p for n, p in model.named_parameters() if p.requires_grad and p.dim() < 2]
 optimizer = torch.optim.AdamW([{"params": decay, "weight_decay": args.weight_decay},
                                {"params": no_decay, "weight_decay": 0.0}], lr=args.lr, betas=(0.9, 0.95))
 
@@ -109,6 +130,10 @@ def estimate_loss():
                 losses.append(model(input_ids=x, labels=x).loss.item())
         out[split] = float(np.mean(losses))
     model.train()
+    # Evaluation allocates its own activation buffers. On a 16 GB machine,
+    # handing them back stops the allocator's cache from creeping toward swap.
+    if args.device == "mps":
+        torch.mps.empty_cache()
     return out
 
 
@@ -147,7 +172,7 @@ for step in range(args.max_steps + 1):
             loss = model(input_ids=x, labels=x).loss / args.accum
         loss.backward()
         total += loss.item()
-    torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+    torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], args.grad_clip)
     optimizer.step()
     optimizer.zero_grad(set_to_none=True)
     dt = time.time() - t0

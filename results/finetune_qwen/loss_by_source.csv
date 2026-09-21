@@ -1,0 +1,7 @@
+model,source,val_docs,tokens_scored,nats_per_token,chars_per_token,bits_per_char
+qwen_finetuned,statements,25,10513,1.3343,5.18,0.371
+qwen_finetuned,minutes,24,209735,1.9216,5.34,0.519
+qwen_finetuned,beigebook,24,437745,2.5287,5.81,0.628
+qwen_base,statements,25,10513,2.0408,5.18,0.568
+qwen_base,minutes,24,209735,2.5733,5.34,0.695
+qwen_base,beigebook,24,437745,3.0994,5.81,0.769

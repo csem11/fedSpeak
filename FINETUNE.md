@@ -203,6 +203,127 @@ Three readings:
   fresh anecdotes make the Beige Book unpredictable, whatever is doing the
   predicting.
 
+## Going bigger: Qwen3-1.7B with LoRA
+
+The obvious next question is whether a stronger open model does better. It
+does, and getting there needed one change of technique.
+
+### What fits on a 16 GB laptop
+
+Full fine-tuning costs roughly 16 bytes per parameter once AdamW's optimizer
+state is counted, so the 360M model was already near the ceiling. Past about
+500M parameters the method has to change: **LoRA** freezes every pretrained
+weight, which lets them sit in bfloat16 at 2 bytes each, and trains a small
+low-rank update beside each attention and MLP projection instead. Here that is
+17.4M trainable parameters out of 1.74B, or 1.0%, and the saved result is a
+77 MB adapter rather than a 1.4 GB model.
+
+Benchmarking decided the model, not preference:
+
+| Candidate | Licence | Fits in 16 GB? | Speed |
+|---|---|---|---|
+| Qwen3-1.7B-Base | Apache 2.0 | yes, 7.4 GB peak | 143 tokens/s |
+| Qwen3-4B-Base | Apache 2.0 | no, 13.8 GB peak, swaps | 15 tokens/s |
+| Llama 3.2 3B, Gemma 3 4B | gated | not tested, needs a licence click-through and a token | |
+
+Qwen3-4B technically loads, but it pushes a 16 GB machine into swap and one run
+would take about a day. **Qwen3-1.7B-Base is the practical ceiling here.** To go
+further on Apple silicon the route is MLX, which supports 4-bit quantised LoRA
+and would bring 4B and larger back into range.
+
+### Keeping the comparison fair
+
+Two details matter, and both are easy to get wrong:
+
+- **Token storage.** Qwen3's vocabulary has about 151,000 entries, which does
+  not fit the 16-bit integers the SmolLM2 data used. The ids are stored as
+  32-bit instead.
+- **The same validation documents.** A different tokenizer moves the 90% token
+  boundary onto a different document, so validation is pinned to the same 73
+  documents, everything from 20 September 2023. Qwen3's tokenizer is slightly
+  more efficient on this corpus, 5.55 characters per token against 5.39.
+
+Everything else is held constant: the same corpus, the same headers, the same
+1.31M-token budget, the same sequence length and batch shape.
+
+### The result
+
+Both runs, converted to bits per character so the tokenizers cancel out:
+
+| Tokens seen | SmolLM2-360M, full fine-tune | Qwen3-1.7B, LoRA |
+|---|---|---|
+| 0, untouched | 0.861 | 0.765 |
+| 164k | 0.752 | 0.662 |
+| 328k | 0.717 | 0.638 |
+| 655k | 0.690 | 0.617 |
+| 983k | 0.679 | 0.609 |
+| 1.31M | 0.675 | **0.605** |
+
+Three things worth pulling out:
+
+- **The bigger model starts ahead and stays ahead.** Untouched, Qwen3-1.7B is
+  already better on Fed text than SmolLM2 was after a full fine-tune on it.
+- **It passes the smaller model's final score after 164,000 tokens**, about an
+  eighth of the budget and twenty minutes of training.
+- **Training 1% of the weights was enough.** LoRA gave a 10% lower final loss
+  than a full fine-tune of the smaller model, while writing a 77 MB file.
+
+The ranking matches the phase 1 lesson from the other direction. There, model
+size was the biggest lever among models trained from scratch. Here, the
+quality of what you start from dominates everything else: the single most
+effective thing you can do is begin from a better pretrained model.
+
+### Per-source, all five models
+
+Bits per character on the same validation documents; lower is easier to predict.
+
+| Source | Char model | SmolLM2 base | SmolLM2 fine-tuned | Qwen3 base | Qwen3 LoRA |
+|---|---|---|---|---|---|
+| FOMC statements | 0.62 | 0.72 | 0.49 | 0.57 | **0.37** |
+| FOMC minutes | 0.91 | 0.80 | 0.61 | 0.70 | **0.52** |
+| Beige Books | 1.04 | 0.86 | 0.69 | 0.77 | **0.63** |
+
+The ordering of difficulty is identical for all five models: statements
+easiest, Beige Books hardest. That is a property of the text, not of any
+model. The fine-tuned Qwen is best on every source, and its margin is largest
+on statements, the most formulaic source, where it is 25% better than the
+fully fine-tuned SmolLM2.
+
+### And it still fabricates, more convincingly
+
+Prompted with a statement header, the untouched Qwen3 writes the front page of
+an academic paper, complete with plausible but wrong author names. It has no
+idea what this header means. After fine-tuning it produces Fed-shaped documents
+on demand, and this is what one of them contains:
+
+> First District--Boston
+> Second District--Chicago
+> Third District--New York
+> Fourth District--Philadelphia
+> Fifth District--Minneapolis
+> ...
+> Eleventh District--Savannah
+
+Every Beige Book in the training data lists these twelve mappings, and each one
+appears **112 times, with no variation**. Only the first line here is right.
+Savannah is not a Reserve Bank city at all; it appears three times in the whole
+corpus as an ordinary place name.
+
+That is the clearest result in this project. A model that has seen a simple
+twelve-row lookup table 112 times, and that predicts this corpus better than
+anything else here, still cannot reproduce the table. Next-token training
+optimises for what is likely to come next, and after "Second District--" a
+Federal Reserve city name is likely. Which one is a fact, and facts are not
+what the objective rewards.
+
+The same pattern shows up when it is asked a real question. The base model
+answers like a textbook, explaining in general terms what the FOMC can do. The
+fine-tuned model answers in the Committee's own voice, with sentences such as
+"Inflation has been somewhat below 2 percent since early March." That sentence
+has the cadence of a real statement and refers to nothing. **Fine-tuning made
+the output more authoritative without making it more true**, which is the
+project's thesis, restated one model size up.
+
 ## Is it usable?
 
 For **generating Fed-register text on demand** by source and date: yes, in

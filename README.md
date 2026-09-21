@@ -240,12 +240,18 @@ the training run. Supporting material lives in `results/`:
 ## Phase 2: fine-tuning a pretrained model
 
 [FINETUNE.md](FINETUNE.md) takes the opposite approach: instead of learning
-English from nothing, it continues pretraining SmolLM2-360M on the same corpus
-for one hour on a 16 GB laptop. The base model already beats the character
-model on Fed text before seeing any of it (0.86 vs 1.00 bits per character),
-fine-tuning brings it to 0.68, and the samples go from clause-level to
-paragraph-level coherence while fabricating exactly as much. The scripts are
-in `finetune/` and need two extra dependencies (`requirements-finetune.txt`).
+English from nothing, it continues pretraining an open model on the same corpus
+on a 16 GB laptop. Two runs: SmolLM2-360M fully fine-tuned, and Qwen3-1.7B with
+LoRA, which trains 1% of the weights and saves a 77 MB adapter because a full
+fine-tune of that size no longer fits in memory.
+
+Both untouched models already beat the from-scratch character model on Fed text
+before seeing any of it, 0.86 and 0.77 bits per character against 1.00. Fine-
+tuning takes them to 0.68 and 0.60. The larger model passes the smaller one's
+final score after an eighth of the training budget, and still writes out the
+Federal Reserve district list, which appears 112 identical times in its training
+data, with only the first of twelve lines correct. The scripts are in
+`finetune/` and need three extra dependencies (`requirements-finetune.txt`).
 
 ## The page
 

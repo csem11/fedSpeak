@@ -35,30 +35,48 @@ PROMPTS = [
 ]
 DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
 SEED = 1337
-out = {"prompts": PROMPTS, "models": {}, "settings": {}}
+# --only char,base,... regenerates just those models and merges them into the
+# existing results/playground.json, so adding a model doesn't re-run the others.
+ONLY = set(sys.argv[sys.argv.index("--only") + 1].split(",")) if "--only" in sys.argv else {"char", "base", "finetuned"}
+OUT_PATH = HERE / "results" / "playground.json"
+out = json.loads(OUT_PATH.read_text()) if OUT_PATH.exists() else {"prompts": PROMPTS, "models": {}, "settings": {}}
+out["prompts"] = PROMPTS
 
 # ---- phase 1 character model
-ckpt = torch.load(HERE / "out" / "ckpt.pt", map_location=DEVICE, weights_only=False)
-gpt = GPT(GPTConfig(**ckpt["model_args"])).to(DEVICE).eval()
-gpt.load_state_dict(ckpt["model"])
-stoi, itos = ckpt["meta"]["stoi"], ckpt["meta"]["itos"]
-out["settings"]["char"] = {"temperature": 0.8, "top_k": 40, "max_new_tokens": 600}
-out["models"]["char"] = {}
-for p in PROMPTS:
-    torch.manual_seed(SEED)
-    ids = [stoi[c] for c in p["text"] if c in stoi]
-    x = torch.tensor(ids, dtype=torch.long, device=DEVICE)[None]
-    with torch.no_grad():
-        y = gpt.generate(x, 600, temperature=0.8, top_k=40)
-    out["models"]["char"][p["id"]] = "".join(itos[int(i)] for i in y[0])
-    print("char     ", p["id"], flush=True)
-del gpt
+if "char" in ONLY:
+  ckpt = torch.load(HERE / "out" / "ckpt.pt", map_location=DEVICE, weights_only=False)
+  gpt = GPT(GPTConfig(**ckpt["model_args"])).to(DEVICE).eval()
+  gpt.load_state_dict(ckpt["model"])
+  stoi, itos = ckpt["meta"]["stoi"], ckpt["meta"]["itos"]
+  out["settings"]["char"] = {"temperature": 0.8, "top_k": 40, "max_new_tokens": 600}
+  out["models"]["char"] = {}
+  for p in PROMPTS:
+      torch.manual_seed(SEED)
+      ids = [stoi[c] for c in p["text"] if c in stoi]
+      x = torch.tensor(ids, dtype=torch.long, device=DEVICE)[None]
+      with torch.no_grad():
+          y = gpt.generate(x, 600, temperature=0.8, top_k=40)
+      out["models"]["char"][p["id"]] = "".join(itos[int(i)] for i in y[0])
+      print("char     ", p["id"], flush=True)
+  del gpt
 
-# ---- SmolLM2 base and fine-tuned
+# ---- pretrained models, full or LoRA
 from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
-for tag, name in (("base", "HuggingFaceTB/SmolLM2-360M"), ("finetuned", str(HERE / "finetune" / "out" / "model"))):
+HF_MODELS = {
+    "base": "HuggingFaceTB/SmolLM2-360M",
+    "finetuned": str(HERE / "finetune" / "out" / "model"),
+    "qwen_base": "Qwen/Qwen3-1.7B-Base",
+    "qwen_finetuned": str(HERE / "finetune" / "out_qwen3-1.7b" / "model"),
+}
+for tag, name in HF_MODELS.items():
+    if tag not in ONLY:
+        continue
     tok = AutoTokenizer.from_pretrained(name)
-    m = AutoModelForCausalLM.from_pretrained(name, dtype=torch.bfloat16).to(DEVICE).eval()
+    if (Path(name) / "adapter_config.json").exists():
+        from peft import AutoPeftModelForCausalLM
+        m = AutoPeftModelForCausalLM.from_pretrained(name, dtype=torch.bfloat16).to(DEVICE).eval()
+    else:
+        m = AutoModelForCausalLM.from_pretrained(name, dtype=torch.bfloat16).to(DEVICE).eval()
     out["settings"][tag] = {"temperature": 0.8, "top_k": 50, "top_p": 0.95, "repetition_penalty": 1.1, "max_new_tokens": 200}
     out["models"][tag] = {}
     for p in PROMPTS:
@@ -72,5 +90,5 @@ for tag, name in (("base", "HuggingFaceTB/SmolLM2-360M"), ("finetuned", str(HERE
         print(tag.ljust(9), p["id"], flush=True)
     del m
 
-(HERE / "results" / "playground.json").write_text(json.dumps(out, indent=1))
+OUT_PATH.write_text(json.dumps(out, indent=1))
 print("wrote results/playground.json")

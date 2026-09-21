@@ -104,11 +104,13 @@ for axis, (title, members) in AXES.items():
     data["ablations"][axis] = {"title": title, "runs": runs}
 
 # ---- per-source, all three models, bits/char
-by_source = {"char": {}, "base": {}, "finetuned": {}}
+by_source = {"char": {}, "base": {}, "finetuned": {}, "qwen_base": {}, "qwen_finetuned": {}}
 for r in read_csv(RES / "loss_by_source.csv"):
     by_source["char"][r["source"]] = round(r["loss_nats_per_char"] / LN2, 3)
-for r in read_csv(RES / "finetune" / "loss_by_source.csv"):
-    by_source[r["model"]][r["source"]] = r["bits_per_char"]
+for f in (RES / "finetune" / "loss_by_source.csv", RES / "finetune_qwen" / "loss_by_source.csv"):
+    if f.exists():
+        for r in read_csv(f):
+            by_source[r["model"]][r["source"]] = r["bits_per_char"]
 data["by_source"] = by_source
 
 # ---- temperature sweep (char model)
@@ -117,6 +119,12 @@ data["temperature"] = [{"t": float(h), "text": b} for h, b in parse_blocks(RES /
 # ---- fine-tune
 CPT = 5.39
 ft = read_csv(RES / "finetune" / "eval_log.csv")
+# Qwen3's tokenizer is a little more efficient on this corpus: 5.55 characters
+# per token against SmolLM2's 5.39 (36.8M characters / 6.64M vs 6.84M tokens).
+CPT_QWEN = 5.55
+qf = RES / "finetune_qwen" / "eval_log.csv"
+data["finetune_qwen"] = [{"step": r["step"], "tokens": r["tokens_seen"], "val": r["val_loss"],
+                          "bpc": round(r["val_loss"] / LN2 / CPT_QWEN, 3)} for r in read_csv(qf)] if qf.exists() else None
 data["finetune"] = {"chars_per_token": CPT, "char_model_bpc": round(0.698 / LN2, 3),
                     "eval": [{"step": r["step"], "tokens": r["tokens_seen"], "val": r["val_loss"], "train": r["train_loss"],
                               "bpc": round(r["val_loss"] / LN2 / CPT, 3)} for r in ft]}

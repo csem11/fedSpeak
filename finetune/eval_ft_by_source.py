@@ -20,6 +20,14 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 HERE = Path(__file__).resolve().parent.parent
+
+
+def load_model(name, dtype, device):
+    """Load a full model, or a LoRA adapter directory (which records its base model)."""
+    if (Path(name) / "adapter_config.json").exists():
+        from peft import AutoPeftModelForCausalLM
+        return AutoPeftModelForCausalLM.from_pretrained(name, dtype=dtype).to(device).eval()
+    return AutoModelForCausalLM.from_pretrained(name, dtype=dtype).to(device).eval()
 DATA = HERE / "data"
 LABELS = {"statements": "FOMC statement", "minutes": "FOMC minutes", "beigebook": "Beige Book"}
 
@@ -28,13 +36,17 @@ ap.add_argument("--model", default="finetune/out/model")
 ap.add_argument("--tag", default="finetuned")
 ap.add_argument("--seq_len", type=int, default=1024)
 ap.add_argument("--device", default="mps")
+ap.add_argument("--data_dir", default="data/ft", help="whose meta.json lists the validation documents")
+ap.add_argument("--out", default="results/finetune/loss_by_source.csv", help="CSV to append rows to")
 args = ap.parse_args()
 
-meta = json.loads((DATA / "ft" / "meta.json").read_text())
+meta = json.loads((HERE / args.data_dir / "meta.json").read_text())
 path = HERE / args.model
 name = str(path) if path.exists() else args.model
 tok = AutoTokenizer.from_pretrained(name)
-model = AutoModelForCausalLM.from_pretrained(name, dtype=torch.float32).to(args.device).eval()
+# fp32 weights with bfloat16 autocast in score(): the same numerics as the
+# SmolLM2 evaluation, so the two model families are scored identically.
+model = load_model(name, torch.float32, args.device)
 
 
 @torch.no_grad()
@@ -71,7 +83,8 @@ for src in LABELS:
     rows.append([args.tag, src, len(docs), toks, f"{npt:.4f}", f"{cpt:.2f}", f"{bpc:.3f}"])
     print(f"{args.tag:<10} {src:<11} {len(docs):3d} docs  {toks:>9,} tokens  {npt:.4f} nats/token  {cpt:.2f} chars/token  = {bpc:.3f} bits/char", flush=True)
 
-out = HERE / "results" / "finetune_loss_by_source.csv"
+out = HERE / args.out
+out.parent.mkdir(parents=True, exist_ok=True)
 new = not out.exists()
 with out.open("a", newline="") as f:
     w = csv.writer(f)

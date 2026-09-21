@@ -18,3 +18,4 @@ data/*.bin
 data/meta.pkl
 playground_gen.log
 runs_*.log
+finetune/out_*/

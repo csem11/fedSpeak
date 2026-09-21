@@ -131,8 +131,9 @@ td.best { font-weight: 600; color: var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 10px 14px; }
 .chips button { border-radius: 8px; text-align: left; }
 .chips button small { display: block; font-family: var(--sans); font-size: .72rem; opacity: .75; }
-.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rule); margin-bottom: 14px; }
-.tabs button { font: inherit; font-family: var(--sans); font-weight: 500; font-size: .92rem; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--ink-2); cursor: pointer; }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rule); margin-bottom: 14px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { white-space: nowrap; flex: none; font: inherit; font-family: var(--sans); font-weight: 500; font-size: .92rem; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--ink-2); cursor: pointer; }
 .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 .tabs button small { display: block; font-family: var(--mono); font-weight: 400; font-size: .7rem; color: var(--ink-3); }
 input[type=range] { width: 100%; accent-color: var(--accent); }
@@ -258,8 +259,8 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
 </section>
 
 <section id="playground">
-  <div class="section-head"><span class="num">03</span><div><div class="eyebrow">Playground</div><h2>Same prompt, three models</h2></div></div>
-  <div class="prose"><p>Every output here was generated once and saved, with a fixed seed, so the page answers instantly and shows what each model actually produced rather than a cherry-picked run. The three models are the phase 1 character model, an untouched SmolLM2-360M, and that same model after an hour of fine-tuning on this corpus (section 05). The last prompt is a real question, included to show what a base language model does with one.</p></div>
+  <div class="section-head"><span class="num">03</span><div><div class="eyebrow">Playground</div><h2>Same prompt, five models</h2></div></div>
+  <div class="prose"><p>Every output here was generated once and saved, with a fixed seed, so the page answers instantly and shows what each model actually produced rather than a cherry-picked run. Five models: the character model trained from scratch, then SmolLM2-360M and Qwen3-1.7B, each untouched and again after fine-tuning on this corpus. The last prompt is a real question, included to show what a base language model does with one.</p></div>
   <div class="window">
     <div class="win-bar">
       <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -293,20 +294,26 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
   </div>
   <h3>Per-source difficulty</h3>
   <div class="prose"><p>The prediction going in was that statements would be hardest: they're 1.6% of the corpus. They are the easiest by a wide margin, for every model, because consecutive statements reuse whole sentences verbatim. The Beige Book, two thirds of the training data, is the hardest, because twelve districts describe different businesses in different words every six weeks. Loss per character measures novelty, not importance.</p></div>
-  <div class="figure"><div class="chart" id="chartSource"></div><div class="legend"><span style="--c:var(--s2)">char model, from scratch</span><span style="--c:var(--s3)">SmolLM2-360M, untouched</span><span style="--c:var(--s1)">SmolLM2-360M, fine-tuned</span></div><div class="cap">Validation loss in bits per character, the unit that puts a character model and a BPE model on the same axis. Lower is easier to predict. Note the character model beats the untouched base model on statements: ten million parameters that have read every statement since 1994 can recite their boilerplate better than 360 million that have read the internet.</div></div>
+  <div class="figure"><div class="chart" id="chartSource"></div><div class="legend" id="srcLegend"></div><div class="cap">Validation loss in bits per character, the unit that puts a character model and a word-piece model on the same axis. Lower is easier to predict. The order of difficulty is the same for every model, which makes it a property of the text rather than of any model. Note also that the character model beats the untouched SmolLM2 on statements: ten million parameters that have read every statement since 1994 recite their boilerplate better than 360 million that have read the internet. Untouched Qwen3-1.7B is left out to keep the groups readable; for every source it lands between the two SmolLM2 bars, better than SmolLM2 untouched and not as good as SmolLM2 fine-tuned.</div></div>
 </section>
 
 <section id="finetune">
-  <div class="section-head"><span class="num">05</span><div><div class="eyebrow">Phase 2: fine-tuning a pretrained model</div><h2>Same objective, different starting point</h2></div></div>
+  <div class="section-head"><span class="num">05</span><div><div class="eyebrow">Phase 2: fine-tuning pretrained models</div><h2>Same objective, different starting point</h2></div></div>
   <div class="prose"><p>The loop is unchanged: windows of tokens, next-token cross-entropy, AdamW, cosine schedule. What differs is that SmolLM2-360M starts from four trillion tokens of prior training instead of noise, reads the corpus as BPE tokens instead of characters, and moves with a learning rate a hundred times smaller. Each document got a one-line header like <span class="mono">[FOMC statement | 2010-01-27]</span> so the result can be asked for a source and date.</p>
-  <p>On a 16 GB laptop the run was paced by memory, not compute: bfloat16 autocast, gradient checkpointing and a micro-batch of one were all necessary, and 320 steps over 1.3M tokens took 88 minutes.</p></div>
-  <div class="figure"><div class="chart" id="chartFt"></div><div class="legend"><span style="--c:var(--s1)">SmolLM2-360M while fine-tuning</span><span class="dash" style="--c:var(--s2)">phase 1 character model, final</span></div><div class="cap">The untouched base model already beats the character model on Fed text before seeing any of it: knowing English is worth more than knowing the Fed. Most of the fine-tuning gain arrives in the first 40 steps.</div></div>
+  <p>On a 16 GB laptop the run was paced by memory, not compute: bfloat16 autocast, gradient checkpointing and a micro-batch of one were all necessary, and 320 steps over 1.3M tokens took 88 minutes.</p>
+  <p>A second run repeats the experiment with a model almost five times larger, Qwen3-1.7B. Full fine-tuning no longer fits, so that run freezes every pretrained weight and trains rank-16 adapters beside them, 1% of the parameters, saved as a 77 MB file. Qwen3-4B was tested and rejected: it pushes this machine into swap and would take about a day per run. The two runs are otherwise identical, same corpus, same headers, same token budget, and validation pinned to the same documents so a different tokenizer cannot shift the split.</p></div>
+  <div class="figure"><div class="chart" id="chartFt"></div><div class="legend" id="ftLegend"></div><div class="cap">Both untouched models already beat the character model on Fed text before seeing any of it: knowing English is worth more than knowing the Fed. Qwen3-1.7B starts where SmolLM2 finishes, and passes SmolLM2's final score after about an eighth of the training budget. Most of the gain in both runs arrives in the first 40 steps.</div></div>
   <h3>Before and after, same prompt, same seed</h3>
   <div class="two">
     <div><div class="doc-head"><span>SmolLM2-360M, untouched</span></div><div class="doc prompt-mark" id="ftBefore"></div></div>
     <div><div class="doc-head"><span>SmolLM2-360M, fine-tuned</span></div><div class="doc prompt-mark" id="ftAfter"></div></div>
   </div>
-  <div class="prose" style="margin-top:20px"><p>The base model knows what the FOMC is and writes fluent English in the register of an internet comment thread. The fine-tuned model writes a statement: policy sentence, rationale, forward guidance, voting paragraph. It also reports a rate that rose to its lowest level, fills the roster with four real governors and four invented ones, and in the minutes sample quotes Mr. Trump at an FOMC meeting. Fluency went up by a lot. Truthfulness did not move, because nothing in the training signal refers to the world.</p></div>
+  <div class="two" id="qwenPair" hidden style="margin-top:16px">
+    <div><div class="doc-head"><span>Qwen3-1.7B, untouched</span></div><div class="doc prompt-mark" id="qwenBefore"></div></div>
+    <div><div class="doc-head"><span>Qwen3-1.7B, LoRA fine-tuned</span></div><div class="doc prompt-mark" id="qwenAfter"></div></div>
+  </div>
+  <div class="prose" style="margin-top:20px"><p>The base model knows what the FOMC is and writes fluent English in the register of an internet comment thread. The fine-tuned model writes a statement: policy sentence, rationale, forward guidance, voting paragraph. It also reports a rate that rose to its lowest level, fills the roster with four real governors and four invented ones, and in the minutes sample quotes Mr. Trump at an FOMC meeting. Fluency went up by a lot. Truthfulness did not move, because nothing in the training signal refers to the world.</p>
+  <p>The larger model makes the same point harder to miss. Every Beige Book in the training data lists which city belongs to which Federal Reserve district, the same twelve lines, 112 times over, never varying. Asked for a Fed document, the fine-tuned Qwen3 wrote out that list with only the first line correct, assigning Chicago to the Second District and inventing an Eleventh District of Savannah, a city that appears three times in the whole corpus and is not a Reserve Bank. It is the best model here by every loss measure. It still cannot reproduce a twelve-row table it has read 112 times, because predicting a likely next token and recalling a fact are not the same task.</p></div>
 </section>
 
 <section id="limits">
@@ -536,7 +543,8 @@ $("#tempDoc").textContent = temps[2].text;
 /* ---------- playground ---------- */
 const PG = DATA.playground;
 if (PG) {
-  const MODELS = [["char", "Character model", "10.65M, from scratch"], ["base", "SmolLM2-360M", "untouched"], ["finetuned", "SmolLM2-360M", "fine-tuned on Fed text"]];
+  const MODELS = [["char", "Character model", "10.65M, from scratch"], ["base", "SmolLM2-360M", "untouched"], ["finetuned", "SmolLM2-360M", "fully fine-tuned"],
+                  ["qwen_base", "Qwen3-1.7B", "untouched"], ["qwen_finetuned", "Qwen3-1.7B", "LoRA fine-tuned"]].filter(([id]) => PG.models[id]);
   let model = "char", prompt = PG.prompts[0].id, timer = null;
   const settings = (m) => Object.entries(PG.settings[m]).map(([k, v]) => `${k.replace("max_new_tokens", "new tokens").replace("_", " ")} ${v}`).join(" · ");
   const render = () => {
@@ -554,6 +562,11 @@ if (PG) {
   render();
   promptMark($("#ftBefore"), PG.models.base.hdr_statement, "[FOMC statement | 2026-10-28]");
   promptMark($("#ftAfter"), PG.models.finetuned.hdr_statement, "[FOMC statement | 2026-10-28]");
+  if (PG.models.qwen_finetuned) {
+    promptMark($("#qwenBefore"), PG.models.qwen_base.hdr_statement, "[FOMC statement | 2026-10-28]");
+    promptMark($("#qwenAfter"), PG.models.qwen_finetuned.hdr_statement, "[FOMC statement | 2026-10-28]");
+    $("#qwenPair").hidden = false;
+  }
 } else { $("#pgDoc").textContent = "Playground outputs not generated yet: run site/generate_playground.py then site/build.py."; }
 
 /* ---------- ablations ---------- */
@@ -592,17 +605,36 @@ ablLine("#chartAblContext", A.context, "characters", 300); ablLine("#chartAblSiz
 /* ---------- per-source ---------- */
 const S = DATA.by_source;
 barChart($("#chartSource"), {
-  groups: ["statements", "minutes", "beigebook"].map(s => ({ label: NAMES[s], values: [S.char[s], S.base[s], S.finetuned[s]] })),
-  seriesNames: ["char model", "SmolLM2 base", "SmolLM2 fine-tuned"], colors: ["var(--s2)", "var(--s3)", "var(--s1)"], yLabel: "bits / char (lower = easier)", fmtY: (v) => fmt(v, 2), yMax: 1.25,
+  ...(() => {
+    const hasQ = S.qwen_finetuned && S.qwen_finetuned.statements != null;
+    const keys = hasQ ? ["char", "base", "finetuned", "qwen_finetuned"] : ["char", "base", "finetuned"];
+    return {
+      groups: ["statements", "minutes", "beigebook"].map(s => ({ label: NAMES[s], values: keys.map(k => S[k][s]) })),
+      seriesNames: hasQ ? ["char model", "SmolLM2 base", "SmolLM2 fine-tuned", "Qwen3-1.7B LoRA"] : ["char model", "SmolLM2 base", "SmolLM2 fine-tuned"],
+      colors: hasQ ? ["var(--s2)", "var(--s3)", "var(--s1)", "var(--s4)"] : ["var(--s2)", "var(--s3)", "var(--s1)"],
+    };
+  })(),
+  yLabel: "bits / char (lower = easier)", fmtY: (v) => fmt(v, 2), yMax: 1.25,
 });
+{
+  const hasQ = S.qwen_finetuned && S.qwen_finetuned.statements != null;
+  const entries = [["var(--s2)", "character model, from scratch"], ["var(--s3)", "SmolLM2-360M, untouched"],
+                   ["var(--s1)", "SmolLM2-360M, fully fine-tuned"], ...(hasQ ? [["var(--s4)", "Qwen3-1.7B, LoRA fine-tuned"]] : [])];
+  $("#srcLegend").innerHTML = entries.map(([c, t]) => `<span style="--c:${c}">${t}</span>`).join("");
+}
 
 /* ---------- fine-tune ---------- */
 const F = DATA.finetune;
 lineChart($("#chartFt"), {
-  series: [{ pts: F.eval.map(r => [r.tokens / 1e6, r.bpc]), label: "fine-tuning", color: "var(--s1)" },
+  series: [{ pts: F.eval.map(r => [r.tokens / 1e6, r.bpc]), label: "SmolLM2-360M", color: "var(--s1)" },
+           ...(DATA.finetune_qwen ? [{ pts: DATA.finetune_qwen.map(r => [r.tokens / 1e6, r.bpc]), label: "Qwen3-1.7B", color: "var(--s4)" }] : []),
            { pts: [[0, F.char_model_bpc], [F.eval[F.eval.length - 1].tokens / 1e6, F.char_model_bpc]], label: "char model", color: "var(--s2)", dash: "5 4" }],
-  xLabel: "Fed tokens seen (M)", yLabel: "val loss (bits / char)", yDomain: [0.6, 1.1], fmtX: (v) => fmt(v, 2), fmtY: (v) => fmt(v, 2), h: 300,
+  xLabel: "Fed tokens seen (M)", yLabel: "val loss (bits / char)", yDomain: [0.55, 1.1], fmtX: (v) => fmt(v, 2), fmtY: (v) => fmt(v, 2), h: 300,
 });
+
+$("#ftLegend").innerHTML = [`<span style="--c:var(--s1)">SmolLM2-360M, full fine-tune</span>`]
+  .concat(DATA.finetune_qwen ? [`<span style="--c:var(--s4)">Qwen3-1.7B, LoRA fine-tune</span>`] : [])
+  .concat([`<span class="dash" style="--c:var(--s2)">phase 1 character model, final</span>`]).join("");
 
 /* ---------- annotated ---------- */
 const TAGS = { form: "form", fabricated: "fabricated", drift: "drift", bug: "bug" };

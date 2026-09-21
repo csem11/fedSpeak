@@ -2,3 +2,4 @@
 # pipeline deliberately does not need these.
 transformers>=4.45
 accelerate>=1.0
+peft>=0.13          # LoRA, for models too large to fully fine-tune in memory

@@ -32,10 +32,17 @@ def header(source: str, date: str) -> str:
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="HuggingFaceTB/SmolLM2-360M")
 ap.add_argument("--train_fraction", type=float, default=0.9)
+ap.add_argument("--val_start", default=None,
+                help="YYYYMMDD: start validation at this document instead of the 90%% token point, "
+                     "so models with different tokenizers are scored on the same documents")
+ap.add_argument("--out_dir", default="data/ft")
 args = ap.parse_args()
+OUT = HERE / args.out_dir
 
 tok = AutoTokenizer.from_pretrained(args.model)
-assert len(tok) < 65536, "uint16 storage assumes a vocabulary under 65,536"
+# Token ids are stored as flat binary arrays. 16 bits hold ids up to 65,535,
+# enough for SmolLM2's 49k vocabulary but not Qwen3's 151k, so widen when needed.
+token_dtype = np.uint16 if len(tok) < 65536 else np.uint32
 eos = tok.eos_token_id
 
 docs = sorted(CLEAN.glob("*/*.txt"), key=lambda p: (p.stem, p.parent.name))
@@ -46,23 +53,26 @@ for p in docs:
     sources.append(p.parent.name)
 
 total = sum(map(len, ids_per_doc))
-cut = int(total * args.train_fraction)
-running, split_at = 0, None
-for i, ids in enumerate(ids_per_doc):
-    running += len(ids)
-    if running > cut:
-        split_at = i
-        break
+if args.val_start:
+    split_at = next(i for i, p in enumerate(docs) if p.stem >= args.val_start)
+else:
+    cut = int(total * args.train_fraction)
+    running, split_at = 0, None
+    for i, ids in enumerate(ids_per_doc):
+        running += len(ids)
+        if running > cut:
+            split_at = i
+            break
 
-train = np.array([t for ids in ids_per_doc[:split_at] for t in ids], dtype=np.uint16)
-val = np.array([t for ids in ids_per_doc[split_at:] for t in ids], dtype=np.uint16)
+train = np.array([t for ids in ids_per_doc[:split_at] for t in ids], dtype=token_dtype)
+val = np.array([t for ids in ids_per_doc[split_at:] for t in ids], dtype=token_dtype)
 OUT.mkdir(parents=True, exist_ok=True)
 train.tofile(OUT / "train.bin")
 val.tofile(OUT / "val.bin")
-meta = {"model": args.model, "vocab_size": len(tok), "eos_token_id": eos,
+meta = {"model": args.model, "vocab_size": len(tok), "eos_token_id": eos, "token_dtype": np.dtype(token_dtype).name,
         "val_starts_at_doc": docs[split_at].stem, "train_tokens": int(len(train)), "val_tokens": int(len(val)),
         "header_example": header("statements", "20260128").strip(),
         "val_docs": [f"{p.parent.name}/{p.stem}" for p in docs[split_at:]]}
 (OUT / "meta.json").write_text(json.dumps(meta, indent=1))
-print(f"{len(docs)} documents -> {total:,} tokens; train {len(train):,} / val {len(val):,}; "
+print(f"{len(docs)} documents -> {total:,} tokens ({np.dtype(token_dtype).name}); train {len(train):,} / val {len(val):,}; "
       f"validation starts at {meta['val_starts_at_doc']}; header looks like {meta['header_example']!r}")
