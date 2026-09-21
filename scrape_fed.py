@@ -32,6 +32,8 @@ import requests
 from bs4 import BeautifulSoup, Comment
 
 BASE = "https://www.federalreserve.gov"
+# Identify the scraper and give the site operator a way to reach the project,
+# without putting anyone's personal email address in every request.
 USER_AGENT = "FedSpeak-research/0.1 (personal learning project; +https://github.com/csem11/fedSpeak)"
 REQUEST_DELAY = 0.5          # seconds between live requests; cached pages cost nothing
 START_YEAR = 1994
