@@ -45,6 +45,14 @@ def parse_blocks(path, marker):
     return out
 
 
+
+def clean_minutes(run, fallback_eval):
+    """Wall time from the clean idle-machine re-run when it exists; the first
+    sweep's timings were distorted by overlapping jobs."""
+    p = RES / "experiments_rerun" / run / "eval_log.csv"
+    ev = read_csv(p) if p.exists() else fallback_eval
+    return round(ev[-1]["elapsed_s"] / 60, 1)
+
 data = {}
 
 # ---- corpus
@@ -83,7 +91,7 @@ for run, ctx in CONTEXT_RUNS:
     if p.exists():
         ev = read_csv(p)
         curve.append({"run": run, "ctx": ctx, "final": ev[-1]["val_loss"],
-                      "minutes": round(ev[-1]["elapsed_s"] / 60, 1), "seqs_per_step": 16384 // ctx})
+                      "minutes": clean_minutes(run, ev), "seqs_per_step": 16384 // ctx})
 fair = RES / "common_context_eval.csv"
 if fair.exists():
     by_run = {r["run"]: r["common_grid_loss"] for r in read_csv(fair)}
@@ -116,7 +124,7 @@ for axis, (title, members) in AXES.items():
         ev = read_csv(RES / "experiments" / run / "eval_log.csv")
         runs.append({"run": run, "label": label, "baseline": run == "ctx0256",
                      "eval": [{"iter": r["iter"], "val_loss": r["val_loss"]} for r in ev],
-                     "final": ev[-1]["val_loss"], "minutes": round(ev[-1]["elapsed_s"] / 60, 1)})
+                     "final": ev[-1]["val_loss"], "minutes": clean_minutes(run, ev)})
     data["ablations"][axis] = {"title": title, "runs": runs}
 
 # ---- per-source, all three models, bits/char

@@ -67,8 +67,15 @@ hr { border: 0; border-top: 1px solid var(--rule); margin-block: 56px; }
 
 /* nav */
 .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); margin-inline: -16px; padding-inline: 16px; }
-.nav .wrap { display: flex; gap: 18px; align-items: center; height: 52px; overflow-x: auto; scrollbar-width: none; }
-.nav .wrap::-webkit-scrollbar { display: none; }
+.nav .wrap { display: flex; gap: 18px; align-items: center; height: 52px; }
+/* Only the section links scroll on narrow screens; the brand, the GitHub
+   link and the theme toggle stay pinned so they can never be pushed off. */
+.nav .wrap { max-width: 1100px; }
+.nav .links { display: flex; gap: 18px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+          mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+.nav .links::-webkit-scrollbar { display: none; }
+.nav .brand, .nav .pinned, .nav .theme-btn { flex: none; }
 .nav .brand { font-family: var(--serif); font-weight: 600; font-size: 1.05rem; color: var(--ink); text-decoration: none; margin-right: 6px; }
 .nav a.link { font-family: var(--mono); font-size: .78rem; color: var(--ink-2); text-decoration: none; white-space: nowrap; letter-spacing: .04em; }
 .nav a.link:hover { color: var(--ink); }
@@ -197,14 +204,16 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
 
 <nav class="nav" aria-label="Sections"><div class="wrap">
   <a class="brand" href="#top">FedSpeak</a>
-  <a class="link" href="#corpus">00 Corpus</a>
-  <a class="link" href="#tokens">01 Tokens</a>
-  <a class="link" href="#training">02 Training</a>
-  <a class="link" href="#playground">03 Playground</a>
-  <a class="link" href="#ablations">04 Ablations</a>
-  <a class="link" href="#finetune">05 Fine-tune</a>
-  <a class="link" href="#limits">06 Limits</a>
-  <span class="spacer"></span>
+  <div class="links">
+    <a class="link" href="#corpus">00 Corpus</a>
+    <a class="link" href="#tokens">01 Tokens</a>
+    <a class="link" href="#training">02 Training</a>
+    <a class="link" href="#playground">03 Playground</a>
+    <a class="link" href="#ablations">04 Ablations</a>
+    <a class="link" href="#finetune">05 Fine-tune</a>
+    <a class="link" href="#limits">06 Limits</a>
+  </div>
+  <a class="link pinned" href="https://github.com/csem11/fedSpeak">GitHub</a>
   <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle colour theme">theme</button>
 </div></nav>
 
@@ -272,12 +281,13 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
     <div class="doc prompt-mark" id="pgDoc" aria-live="polite"></div>
     <div class="win-status"><span id="pgSettings"></span><span id="pgTiming"></span></div>
   </div>
-  <p class="small muted" style="margin-top:10px">Prompt shown in green. The character model receives the prompt as characters; the SmolLM2 models as BPE tokens. Header prompts in square brackets are the format the fine-tuned model was trained with; the other two models have never seen one.</p>
+  <p class="small muted" style="margin-top:10px">Prompt shown in green. The character model receives the prompt as characters; the SmolLM2 and Qwen3 models as word-piece tokens. Header prompts in square brackets are the format the two fine-tuned models were trained with. The other three have never seen one, which is why the untouched models answer a header with a comment thread or the front page of an academic paper.</p>
 </section>
 
 <section id="ablations">
   <div class="section-head"><span class="num">04</span><div><div class="eyebrow">What moves the loss</div><h2>One knob at a time</h2></div></div>
-  <div class="prose"><p>Eleven runs of 1000 iterations each, at a fixed 16,384 characters per step, on a 3.2M-parameter baseline so each one takes minutes rather than an hour. Every run changes exactly one thing. Characters per step are held constant when the chunk size changes, so the 16-character run sees 1024 sequences per gradient and the 1024-character run sees 16, which turns out to be the source of the most interesting result.</p></div>
+  <div class="prose"><p>Eleven runs of 1000 iterations each, at a fixed 16,384 characters per step, on a 3.2M-parameter baseline so each one takes minutes rather than an hour. Every run changes exactly one thing. Characters per step are held constant when the chunk size changes, so the 16-character run sees 1024 sequences per gradient and the 1024-character run sees 16, which turns out to be the source of the most interesting result.</p>
+    <p>Re-running every one of them at the same seed moves the answer by at most 0.005, because GPU kernels aren't bit-for-bit deterministic. Differences smaller than about 0.01 on this page are noise; the ones the conclusions rest on are several times larger, and the closest call was settled with three seeds.</p></div>
   <div class="figure"><div class="chart" id="chartAblSummary"></div><div class="cap">Final validation loss for the four representative chunk sizes alongside the size and learning-rate runs. Model size is the biggest lever, and the default learning rate was too cautious. The chunk-size axis is resolved in full below.</div></div>
   <h3>Chunk size, in full</h3>
   <div class="prose"><p id="ctxProse"></p><p>The first version of this sweep tested only 16, 64, 256 and 1024, and concluded that 64 and 256 were tied. Filling in the gaps showed a U with a minimum at 128. Then scoring every model fairly moved the minimum again, to 64, and showed that most of the left side of the U came from the evaluation, not the models. Given its full 16 characters, about three words, the smallest model predicts nearly as well as the best: most of what makes the next character predictable sits inside the current word.</p></div>
@@ -325,8 +335,8 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
   <div class="note" id="annNote"><b>note</b>Hover a highlighted span.</div>
   <h3>Is any of it usable?</h3>
   <div class="verdict">
-    <div><h3>Yes, for one thing</h3><ul><li>Generating Fed-register text on demand by source and date. The fine-tuned model returns a document of the right shape for a paragraph or two.</li><li>Teaching. The phase 1 run is a complete, inspectable instance of pretraining that finishes in half an hour.</li><li>Autocompleting boilerplate. Statements score 0.49 bits per character because they repeat themselves, and the model can finish the fixed sentences.</li></ul></div>
-    <div><h3>No, for anything else</h3><ul><li>Anything that depends on the content being true. No amount of further training on this corpus changes that; nothing in the signal refers to the world.</li><li>Answering questions. These are base models continuing text. A question gets a question-shaped continuation.</li><li>Being judged by the loss. 0.68 bits per character is respectable, and the output still shouldn't be used for anything but this page.</li></ul></div>
+    <div><h3>Yes, for one thing</h3><ul><li>Generating Fed-register text on demand by source and date. The fine-tuned models return a document of the right shape for a paragraph or two, and a reader who doesn't check won't notice. That is the usable thing and also the dangerous thing.</li><li>Teaching. The phase 1 run is a complete, inspectable instance of pretraining that finishes in half an hour.</li><li>Autocompleting boilerplate. The fine-tuned Qwen3 scores 0.37 bits per character on statements because they repeat themselves, so it can finish the fixed sentences.</li></ul></div>
+    <div><h3>No, for anything else</h3><ul><li>Anything that depends on the content being true. No amount of further training on this corpus changes that; nothing in the signal refers to the world.</li><li>Answering questions. The untouched Qwen3 answers like a textbook. The fine-tuned one answers in the Committee's own voice, with sentences like "Inflation has been somewhat below 2 percent since early March" that refer to nothing. Fine-tuning made the answer more convincing, not more correct.</li><li>Being judged by the loss. The best model here reaches 0.60 bits per character, and it still wrote out a twelve-row table it had read 112 times with eleven rows wrong.</li></ul></div>
   </div>
   <div class="prose"><p>The next step toward a model that can say what the Fed <em>actually</em> said is retrieval: find the real paragraph in the cleaned corpus, put it in the prompt, and let a model summarise text it can see. That is a different project with a different failure mode.</p></div>
   <h3>How far the same mechanism goes</h3>
@@ -336,7 +346,7 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
 
 <footer>
   <div class="repo" id="repoList"></div>
-  <p style="margin-top:18px">Model code is Andrej Karpathy's <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> (MIT). Phase 2 base model is Hugging Face's <a href="https://huggingface.co/HuggingFaceTB/SmolLM2-360M">SmolLM2-360M</a> (Apache 2.0). Training text is publications of the Board of Governors of the Federal Reserve System, works of the United States government. This page is generated from the experiment logs by <code>site/build.py</code>; every number on it is in a CSV in <code>results/</code>.</p>
+  <p style="margin-top:18px">Model code is Andrej Karpathy's <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> (MIT). Phase 2 base models are Hugging Face's <a href="https://huggingface.co/HuggingFaceTB/SmolLM2-360M">SmolLM2-360M</a> and Alibaba's <a href="https://huggingface.co/Qwen/Qwen3-1.7B-Base">Qwen3-1.7B-Base</a>, both Apache 2.0. Training text is publications of the Board of Governors of the Federal Reserve System, works of the United States government. This page is generated from the experiment logs by <code>site/build.py</code>; every number on it is in a CSV in <code>results/</code>. Code, write-ups and every log: <a href="https://github.com/csem11/fedSpeak">github.com/csem11/fedSpeak</a>.</p>
 </footer>
 </main>
 
