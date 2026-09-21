@@ -89,6 +89,22 @@ if fair.exists():
     by_run = {r["run"]: r["common_grid_loss"] for r in read_csv(fair)}
     for c in curve:
         c["fair"] = by_run.get(c["run"])
+# Seed ranges around the minimum: every run at that setting (original, same-seed
+# re-run, seeds 1338 and 1339), so the plotted single-seed point always sits
+# inside its own whisker.
+seeds_csv = RES / "common_context_seeds.csv"
+if seeds_csv.exists() and fair.exists():
+    fair_seed = {r["run"]: r["common_grid_loss"] for r in read_csv(seeds_csv)}
+    for c in curve:
+        base = c["run"]
+        tags = [base + "_s1338", base + "_s1339"]
+        if not all((RES / "experiments_seeds" / t / "eval_log.csv").exists() for t in tags):
+            continue
+        own = [c["final"], read_csv(RES / "experiments_rerun" / base / "eval_log.csv")[-1]["val_loss"]]
+        own += [read_csv(RES / "experiments_seeds" / t / "eval_log.csv")[-1]["val_loss"] for t in tags]
+        fr = [c["fair"], fair_seed[base]] + [fair_seed[t] for t in tags]
+        c["range"] = [min(own), max(own)]
+        c["fair_range"] = [min(fr), max(fr)]
 data["context_curve"] = curve
 lr_full = RES / "experiments" / "main_lr3e-3" / "eval_log.csv"
 data["lr_transfer"] = {"lr1e-3": 0.698, "lr3e-3": read_csv(lr_full)[-1]["val_loss"]} if lr_full.exists() else None

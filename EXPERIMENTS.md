@@ -45,11 +45,11 @@ same compute", and it is also the source of the most interesting result.
 | context | `ctx0256` | baseline: 256 chars, 64 seqs/step | 0.922 | 5.2 min |
 | context | `ctx1024` | 1024 chars, 16 seqs/step | 1.276 | 10.9 min |
 | size | `size0.4M` | 2 layers, 2 heads, 128-wide (0.40M) | 1.426 | 1.3 min |
-| size | `ctx0256` | baseline: 3.17M | 0.922 | 5.8 min |
+| size | `ctx0256` | baseline: 3.17M | 0.922 | 5.2 min |
 | size | `size10.6M` | 6 layers, 6 heads, 384-wide (10.65M) | 0.798 | 14.7 min |
-| learning rate | `lr3e-4` | peak 3e-4 | 1.211 | 5.4 min |
-| learning rate | `ctx0256` | baseline: peak 1e-3 | 0.922 | 5.8 min |
-| learning rate | `lr3e-3` | peak 3e-3 | **0.877** | 6.2 min |
+| learning rate | `lr3e-4` | peak 3e-4 | 1.211 | 5.1 min |
+| learning rate | `ctx0256` | baseline: peak 1e-3 | 0.922 | 5.2 min |
+| learning rate | `lr3e-3` | peak 3e-3 | **0.877** | 5.0 min |
 
 For scale: the uniform-guess loss over 86 characters is 4.45, and the main
 run reaches 0.698 with the 10.65M model after twice this budget.
@@ -104,8 +104,9 @@ separates the two.
 ### How much of this is noise?
 
 The whole sweep was run a second time at the same seed on an idle machine, both
-to get honest timings and to see how repeatable it is. Nine runs completed
-before the machine's Metal compiler service failed and took the rest with it.
+to get honest timings and to see how repeatable it is. Nine runs completed on
+the first attempt; the machine's Metal compiler service then failed and aborted
+the rest instantly, and the last two were completed after it recovered.
 
 | Run | First pass | Second pass | Difference |
 |---|---|---|---|
@@ -118,6 +119,8 @@ before the machine's Metal compiler service failed and took the rest with it.
 | ctx 1024 | 1.2758 | 1.2744 | 0.0014 |
 | 0.40M | 1.4256 | 1.4290 | 0.0034 |
 | 10.65M | 0.7979 | 0.7965 | 0.0014 |
+| lr 3e-4 | 1.2108 | 1.2107 | 0.0001 |
+| lr 3e-3 | 0.8773 | 0.8751 | 0.0022 |
 
 **Same seed, same data, same code, and the answers still move by up to 0.005.**
 GPU kernels are not bit-for-bit deterministic, so every number here carries a
@@ -131,9 +134,29 @@ considered. That sets the scale for reading the rest of this document:
   above the floor.
 - Anything reported here to the fourth decimal place is spurious precision.
 
-A three-seed study of the 64, 128 and 256 runs was started and did not finish;
-`./finish_seed_study.sh` completes it in about 45 minutes on a healthy
-machine.
+### Three seeds
+
+Same-seed noise is one thing; a different random initialisation and data order
+is another. The three sizes around the minimum were each trained with two more
+seeds, 1338 and 1339. The range column covers every run at that setting,
+including the same-seed re-run above.
+
+| Chunk size | Seed 1337 | Seed 1338 | Seed 1339 | Range, all runs |
+|---|---|---|---|---|
+| 64 | 0.901 | 0.906 | 0.906 | 0.901 to 0.906 |
+| 128 | **0.882** | **0.887** | **0.886** | 0.882 to 0.887 |
+| 256 | 0.922 | 0.909 | 0.917 | 0.909 to 0.922 |
+
+**128 is the minimum on every seed, and its worst run beats the best run of
+either neighbour.** The ranges do not overlap, so the minimum is established,
+not suggested. The one thing a single seed could not settle, whether 64 or 256
+is second, it still cannot: they swap order between seeds.
+
+A second result falls out for free. **The seed-to-seed spread grows with chunk
+size**: 0.005 at 64, 0.005 at 128 and 0.013 at 256. Longer chunks mean fewer
+sequences in each gradient, so each step is a noisier estimate and the final
+answer depends more on the luck of the draw. That is independent evidence for
+the explanation given above for the right-hand side of the curve.
 
 The timings in the table above are from this clean second pass. The first
 pass's numbers were unusable because runs overlapped with other jobs: the
@@ -176,6 +199,19 @@ Three things change:
 - **The right side does not move.** At 512 and 1024 both scoring methods agree,
   so the collapse is a genuine learning cost (16 sequences per gradient is too
   few in 1000 steps), not an evaluation artifact.
+
+The same three seeds, scored fairly:
+
+| Chunk size | Seed 1337 | Seed 1338 | Seed 1339 | Range, all runs |
+|---|---|---|---|---|
+| 64 | **0.785** | **0.790** | **0.792** | 0.785 to 0.792 |
+| 128 | 0.806 | 0.799 | 0.812 | 0.799 to 0.812 |
+| 256 | 0.854 | 0.856 | 0.877 | 0.854 to 0.877 |
+
+64 is the fair minimum on every seed, again with no overlap. Both conclusions
+hold: scored the way a training loop reports it the best chunk is 128, scored
+on identical targets it is 64, and neither answer is noise. The spread grows
+with chunk size here too, from 0.008 to 0.023.
 
 The absolute values in the two columns come from different slices of the
 validation text and should not be subtracted from each other. The comparison
@@ -347,21 +383,19 @@ them, just at longer range and with better spelling.
 
 ## Caveats
 
-- **One seed per run, and the re-run above measures the floor.** Repeating the
-  sweep at the same seed moved answers by up to 0.005, so differences of 0.02
-  are suggestive rather than established and differences of 0.2 are certain. A
-  three-seed comparison of chunk sizes 64, 128 and 256 was launched to settle
-  the middle ground and could not complete: the machine's Metal compiler
-  service failed partway through the batch, aborting the remaining eight runs
-  instantly. That study is still outstanding.
+- **Most runs are one seed.** Repeating the sweep at the same seed moved answers
+  by up to 0.005, and three seeds settled the chunk-size minimum under both
+  scoring methods. The other axes rest on single seeds, which is enough for the
+  learning-rate and model-size effects because they are ten to a hundred times
+  the noise floor, but not for any difference below about 0.01.
 - **1000 iterations is a short budget.** Every ranking here is "at this
   budget". Learning rate and context length in particular are known to
   change their optimum with training length.
-- **Validation loss depends on the context length being evaluated.** Each
-  run is scored in windows of its own block size, so a 16-context model is
-  scored with at most 16 characters of context. That is the honest measure
-  of what the model can do, but it means the context axis mixes "how much
-  context helps learning" with "how much context helps prediction".
+- **How you score the context axis changes the answer.** Scored in windows of
+  its own chunk size, each model is penalised for the early positions that have
+  almost no history, and the best chunk is 128. Scored on identical targets
+  with full context, it is 64. Both are reported above; neither is wrong, but
+  they answer different questions.
 - **The chronological split favours the formulaic.** Validation is the most
   recent 10% of documents. A source whose recent documents closely repeat
   earlier ones (statements) will score well partly for that reason.
@@ -377,6 +411,8 @@ python3 plot_results.py          # writes results/figures/*.png
 
 Each run writes `runs/<name>/eval_log.csv`; copy those into
 `results/experiments/<name>/` for `plot_results.py` and the web page to pick
-them up. Losses are deterministic given the seed, so they reproduce exactly.
-Wall-clock times do not: run the sweep on an otherwise idle machine if you want
-the timings to mean anything.
+them up. On Apple silicon GPU kernels are not bit-for-bit deterministic, so the
+same seed reproduces losses to within about 0.005, not exactly. Timings only
+mean something on an otherwise idle machine. `./finish_seed_study.sh` runs the
+three-seed study, and the sweep pauses between runs because launching many short
+GPU jobs back to back exhausted the Metal compiler service once already.

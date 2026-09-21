@@ -1,6 +1,11 @@
 #!/bin/bash
-# finish_seed_study.sh - the eight runs that a Metal compiler failure aborted,
-# plus the fair scoring across seeds. About 45 minutes on an idle machine.
+# finish_seed_study.sh - the three-seed study around the chunk-size minimum,
+# plus the two learning-rate re-runs, then fair scoring across all nine seed
+# runs. About 45 minutes on an idle machine. (Named for its origin: it resumed
+# a batch that a Metal compiler failure aborted.)
+#
+# Afterwards copy runs/<name>/*_log.csv into results/experiments_seeds/<name>/
+# for the seed runs, and results/experiments_rerun/<name>/ for the re-runs.
 #
 # Needs a healthy GPU. Check first:
 #   python3 -c "import torch; x=torch.randn(64,64,device='mps'); print(float((x@x).sum()))"

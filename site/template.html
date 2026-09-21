@@ -282,6 +282,7 @@ kbd.k { font-family: var(--mono); font-size: .74rem; background: var(--paper-3);
   <h3>Chunk size, in full</h3>
   <div class="prose"><p id="ctxProse"></p><p>The first version of this sweep tested only 16, 64, 256 and 1024, and concluded that 64 and 256 were tied. Filling in the gaps showed a U with a minimum at 128. Then scoring every model fairly moved the minimum again, to 64, and showed that most of the left side of the U came from the evaluation, not the models. Given its full 16 characters, about three words, the smallest model predicts nearly as well as the best: most of what makes the next character predictable sits inside the current word.</p></div>
   <div class="figure"><div class="chart" id="chartCtxCurve"></div><div class="legend"><span style="--c:var(--s1)">own-window loss (what the training loop reports)</span><span style="--c:var(--s2)">same 60,000 target characters, full context each</span></div><div class="cap" id="ctxCurveCap"></div></div>
+  <div class="figure" id="seedFig" hidden><div class="chart" id="chartSeeds"></div><div class="cap" id="seedCap"></div></div>
   <div class="figure"><div class="chart" id="chartAblContext"></div><div class="cap">The four representative sizes over the course of the run. Short context leads early; 256 only draws level in the last 200 iterations; 1024 never recovers from averaging over 16 sequences per step.</div></div>
   <div class="two">
     <div class="figure"><div class="chart" id="chartAblSize"></div></div>
@@ -376,7 +377,7 @@ const ticks = (lo, hi, n = 5) => {
 
 /* ---------- line chart with hover ---------- */
 let clipSeq = 0;
-function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title, refLine, endLabels = true, xTicks = null, markers = false, labelPoints = null, fmtX = (v) => tabular(v), fmtY = (v) => fmt(v), h = 300, w = 720 }) {
+function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title, refLine, endLabels = true, xTicks = null, markers = false, labelPoints = null, whiskers = null, fmtX = (v) => tabular(v), fmtY = (v) => fmt(v), h = 300, w = 720 }) {
   // w sets the drawing width; a narrower viewBox renders the same 11px text
   // larger when the chart sits in a half-width column.
   const W = w, H = h, P = { l: 48, r: 96, t: title ? 44 : 30, b: 40 };
@@ -402,6 +403,12 @@ function lineChart(container, { series, xLabel, yLabel, yDomain, xDomain, title,
   svg.append(grid, axis);
   if (title) svg.append(el("svg:text", { x: P.l, y: 16, class: "title", text: title }));
   if (refLine != null) { svg.append(el("svg:line", { x1: P.l, x2: W - P.r, y1: y(refLine), y2: y(refLine), stroke: "var(--ink-3)", "stroke-dasharray": "4 4" })); }
+  // Whiskers: [{x, lo, hi, color, dx}] drawn under the lines, capped at both ends.
+  for (const wk of (whiskers || [])) {
+    const cx = x(wk.x) + (wk.dx || 0);
+    plot.append(el("svg:line", { x1: cx, x2: cx, y1: y(wk.lo), y2: y(wk.hi), stroke: wk.color, "stroke-width": 1.5, opacity: 0.8 }));
+    for (const v of [wk.lo, wk.hi]) plot.append(el("svg:line", { x1: cx - 4, x2: cx + 4, y1: y(v), y2: y(v), stroke: wk.color, "stroke-width": 1.5, opacity: 0.8 }));
+  }
   const ends = [];
   series.forEach((s, i) => {
     const d = s.pts.map((p, j) => (j ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
@@ -591,13 +598,36 @@ if (CC && CC.length) {
     xDomain: [lg(CC[0].ctx) - 0.3, lg(CC[CC.length - 1].ctx) + 0.3],
     yDomain: [Math.min(...ys) - 0.06, Math.max(...ys) + 0.1],
     xTicks: CC.map(r => lg(r.ctx)), markers: true, endLabels: false,
+    whiskers: CC.filter(r => r.range).flatMap(r => [
+      { x: lg(r.ctx), lo: r.range[0], hi: r.range[1], color: "var(--s1)", dx: -7 },
+      ...(r.fair_range ? [{ x: lg(r.ctx), lo: r.fair_range[0], hi: r.fair_range[1], color: "var(--s2)", dx: 7 }] : [])]),
     title: "Seven chunk sizes, scored two ways",
     fmtX: (v) => String(Math.round(2 ** v)), fmtY: (v) => fmt(v, 2), h: 300,
   });
   $("#ctxProse").textContent = `Seven chunk sizes, each trained on the same 16,384 characters per step, so halving the chunk doubles the number of independent sequences in every gradient. Scored the way a training loop reports it, the curve is a U with its minimum at ${CC[best].ctx} characters.`;
   $("#ctxCurveCap").textContent = hasFair
-    ? `Blue scores each model in windows of its own chunk size, averaging in early positions that have almost no history; its minimum is ${CC[best].ctx}. Orange scores every model on the same characters with its full context; the minimum moves to ${CC[bestFair].ctx}, the left side nearly flattens, and the collapse at 512 and 1024 survives, so that part is a real learning cost.`
+    ? `Blue scores each model in windows of its own chunk size, averaging in early positions that have almost no history; its minimum is ${CC[best].ctx}. Orange scores every model on the same characters with its full context; the minimum moves to ${CC[bestFair].ctx}, the left side nearly flattens, and the collapse at 512 and 1024 survives, so that part is a real learning cost.${CC.some(r => r.range) ? " The small whiskers at 64, 128 and 256 are three-seed ranges, zoomed below." : ""}`
     : `Every run sees 16,384 characters per step. The minimum is at ${CC[best].ctx} characters.`;
+}
+const SEEDED = (CC || []).filter(r => r.range && r.fair_range);
+if (SEEDED.length === 3) {
+  const lg = (v) => Math.log2(v);
+  const all = SEEDED.flatMap(r => [...r.range, ...r.fair_range]);
+  const bo = SEEDED.reduce((b, r, i) => (r.final < SEEDED[b].final ? i : b), 0);
+  const bf = SEEDED.reduce((b, r, i) => (r.fair < SEEDED[b].fair ? i : b), 0);
+  lineChart($("#chartSeeds"), {
+    series: [{ pts: SEEDED.map(r => [lg(r.ctx), r.final]), label: "own window", color: "var(--s1)", labelIdx: [bo] },
+             { pts: SEEDED.map(r => [lg(r.ctx), r.fair]), label: "same targets", color: "var(--s2)", labelIdx: [bf] }],
+    whiskers: SEEDED.flatMap(r => [{ x: lg(r.ctx), lo: r.range[0], hi: r.range[1], color: "var(--s1)" },
+                                   { x: lg(r.ctx), lo: r.fair_range[0], hi: r.fair_range[1], color: "var(--s2)" }]),
+    xDomain: [lg(SEEDED[0].ctx) - 0.35, lg(SEEDED[2].ctx) + 0.35], yDomain: [Math.min(...all) - 0.012, Math.max(...all) + 0.014],
+    xTicks: SEEDED.map(r => lg(r.ctx)), markers: true, endLabels: false,
+    title: "Zoomed: three seeds around the minimum", xLabel: "chunk size (characters)", yLabel: "val loss (nats / char)",
+    fmtX: (v) => String(Math.round(2 ** v)), fmtY: (v) => fmt(v, 2), h: 280,
+  });
+  const sp = (r) => fmt(r.range[1] - r.range[0], 3);
+  $("#seedCap").textContent = `Each whisker spans every run at that setting: three seeds plus a same-seed re-run. None overlap, so both minima hold: ${SEEDED[bo].ctx} under own-window scoring, ${SEEDED[bf].ctx} under fair scoring. The whiskers also widen with chunk size, ${sp(SEEDED[0])} at ${SEEDED[0].ctx} to ${sp(SEEDED[2])} at ${SEEDED[2].ctx} for the blue line, because fewer sequences per gradient make training noisier and the result more dependent on the draw.`;
+  $("#seedFig").hidden = false;
 }
 const ablLine = (id, ax, unit, hh = 260, ww = 720) => lineChart($(id), { series: ax.runs.map((r, i) => ({ pts: r.eval.map(e => [e.iter, e.val_loss]), label: r.label, color: SERIES[i] })), xLabel: "iter", yLabel: "val loss", yDomain: [0.6, 2.2], xDomain: [0, 1000], title: ax.title + (unit ? ` (${unit})` : ""), fmtY: (v) => fmt(v, 2), h: hh, w: ww });
 ablLine("#chartAblContext", A.context, "characters", 300); ablLine("#chartAblSize", A.size, "parameters", 320, 440); ablLine("#chartAblLr", A.lr, "peak", 320, 440);
