@@ -264,6 +264,10 @@ data, with only the first of twelve lines correct. The scripts are in
 
 ## The page
 
+**Live at [fedspeak.csem.ai](https://fedspeak.csem.ai).** `deploy/deploy.sh`
+rebuilds the page and redeploys it; see the comments in `deploy/` for how it
+shares a server and its Caddy config with other sites safely.
+
 `docs/index.html` is a single-file portfolio page that walks through all of
 the above with live charts drawn from the logs and a prompt playground with
 saved outputs from all five models. Open it directly in a browser, or serve

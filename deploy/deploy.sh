@@ -15,6 +15,9 @@ BOX_IP=${HOST#*@}
 NEIGHBOURS="csem.ai www.csem.ai ria.csem.ai ria-demo.csem.ai meketa.csem.ai treasury-deposit-lab.csem.ai loowit-play.csem.ai etfetch.csem.ai sudoku-solver.csem.ai"
 ssh_box() { ssh -i "$KEY" -o ConnectTimeout=10 -o BatchMode=yes "$HOST" "$@"; }
 status() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$1/" || true; }
+# This site pinned to the box: a laptop can cache "no such name" from lookups
+# made before the record existed, long after public DNS has it.
+status_pinned() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$1:443:$BOX_IP" "https://$1/" || true; }
 
 echo "== 1. rebuild the page from results/"
 python3 site/build.py
@@ -36,7 +39,9 @@ echo "   container health: $health"
 [ "$health" = healthy ] || { echo "   container is not healthy; not routing it"; exit 1; }
 
 echo "== 4. route $DOMAIN through Caddy"
-if [ "$(dig +short "$DOMAIN" A | tail -1)" != "$BOX_IP" ]; then
+# Ask a public resolver, not the local cache: public DNS is what Caddy's
+# certificate request and visitors actually see.
+if [ "$(dig +short "$DOMAIN" A @1.1.1.1 | tail -1)" != "$BOX_IP" ]; then
   echo "   $DOMAIN does not resolve to $BOX_IP yet."
   echo "   Add a DNS-only (grey cloud) A record in Cloudflare, then re-run this script."
   exit 0
@@ -49,8 +54,8 @@ before_of() { awk -v n="$1" '$1 == n {print $2}' "$BEFORE"; }
 ssh_box "bash ~/$REMOTE_DIR/deploy/caddy_add_site.sh $DOMAIN $NAME:80 'fedspeak (fedSpeak repo, github.com/csem11/fedSpeak)'"
 
 echo "== 5. verify"
-for _ in $(seq 1 12); do [ "$(status "$DOMAIN")" = 200 ] && break; sleep 5; done   # first request fetches the TLS cert
-printf "   %-34s %s\n" "$DOMAIN" "$(status "$DOMAIN")"
+for _ in $(seq 1 12); do [ "$(status_pinned "$DOMAIN")" = 200 ] && break; sleep 5; done   # first request fetches the TLS cert
+printf "   %-34s %s\n" "$DOMAIN" "$(status_pinned "$DOMAIN")"
 changed=0
 for n in $NEIGHBOURS; do
   after=$(status "$n"); was=$(before_of "$n"); flag=""; [ "$after" != "$was" ] && { flag="  CHANGED from $was"; changed=1; }

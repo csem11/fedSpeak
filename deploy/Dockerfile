@@ -6,7 +6,9 @@ FROM nginx:1.27-alpine
 # must not be served.
 COPY docs/index.html /usr/share/nginx/html/index.html
 
-RUN printf 'server {\n\
+# Security headers are repeated in every location on purpose: in nginx, a
+# location that sets any add_header of its own drops all server-level ones.
+RUN rm -f /usr/share/nginx/html/50x.html && printf 'server {\n\
     listen 80;\n\
     listen [::]:80;\n\
     server_tokens off;\n\
@@ -14,10 +16,17 @@ RUN printf 'server {\n\
     index index.html;\n\
     gzip on;\n\
     gzip_types text/html text/css application/javascript;\n\
-    add_header X-Content-Type-Options nosniff always;\n\
-    add_header Referrer-Policy strict-origin-when-cross-origin always;\n\
-    location = / { add_header Cache-Control "no-cache" always; try_files /index.html =404; }\n\
-    location / { try_files $uri =404; }\n\
+    location = / {\n\
+        add_header Cache-Control "no-cache" always;\n\
+        add_header X-Content-Type-Options nosniff always;\n\
+        add_header Referrer-Policy strict-origin-when-cross-origin always;\n\
+        try_files /index.html =404;\n\
+    }\n\
+    location / {\n\
+        add_header X-Content-Type-Options nosniff always;\n\
+        add_header Referrer-Policy strict-origin-when-cross-origin always;\n\
+        try_files $uri =404;\n\
+    }\n\
 }\n' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
