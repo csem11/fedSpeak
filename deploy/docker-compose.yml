@@ -1,0 +1,28 @@
+# Co-located on the shared csem.ai box. Caddy (in Fund_Distro_RIA_Explorer)
+# fronts this service at fedspeak.csem.ai; no ports are published.
+#
+#   docker compose -f deploy/docker-compose.yml up -d --build
+# An explicit project name. Without it Compose names the project after this
+# folder, "deploy", which is shared with every other site on the box, and a
+# --remove-orphans or down here could remove their containers.
+name: fedspeak
+
+services:
+  fedspeak:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: fedspeak:latest
+    container_name: fedspeak
+    expose:
+      - "80"
+    restart: unless-stopped
+    mem_limit: 64m
+    networks:
+      - web
+    labels:
+      - autoheal=true
+
+networks:
+  web:
+    external: true

@@ -19,3 +19,6 @@ data/meta.pkl
 playground_gen.log
 runs_*.log
 finetune/out_*/
+
+# Internal infrastructure notes: never commit to this public repo, never serve.
+docs/PUBLISH_NEW_SITE.md
