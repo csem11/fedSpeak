@@ -22,3 +22,6 @@ finetune/out_*/
 
 # Internal infrastructure notes: never commit to this public repo, never serve.
 docs/PUBLISH_NEW_SITE.md
+
+# Private interview prep notes
+INTERVIEW_PREP.md
