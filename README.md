@@ -271,6 +271,12 @@ saved outputs from all five models. Open it directly in a browser, or serve
 `site/template.html` and `results/`; `site/generate_playground.py` produces
 the saved playground outputs.
 
+## Conventions
+
+[STYLE.md](STYLE.md) records how this project writes, reports numbers, draws
+charts and builds the page, including the noise floor that sets how many
+decimals a result deserves. Anything added should follow it.
+
 ## Attribution
 
 Model code: [nanoGPT](https://github.com/karpathy/nanoGPT) by Andrej Karpathy,
